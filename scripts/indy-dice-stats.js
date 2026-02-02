@@ -51,7 +51,9 @@ const state = {
   chartPromise: null,
   flattedPromise: null,
   workflowMeta: new Map(),
-  processedMessages: new Set()
+  processedMessages: new Set(),
+  themeObserver: null,
+  themeIsDark: null
 };
 
 function debounce(fn, waitMs) {
@@ -930,7 +932,8 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       ?? document.querySelector(`#${this.id}`);
   }
 
-  async _refreshCharts() {
+  async _refreshCharts(options = {}) {
+    const forceThemeRefresh = !!options.forceThemeRefresh;
     let chartsReady = true;
     try {
       await ensureChartJs();
@@ -979,6 +982,9 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     this._renderComparisonTable(scope, compareStats, dieFilter);
     this._renderDistributionHeader(scope, dieFilter, normalize);
     if (chartsReady) {
+      if (forceThemeRefresh) {
+        this._chartState.breakdownKey = null;
+      }
       this._renderDistributionChart(root, scopedStats, dieFilter, compareStats, normalize);
       this._renderBreakdownChart(root, filteredBaseStats, actionFilter, dieFilter, detailFilter);
     }
@@ -1223,7 +1229,11 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
           }
         },
         plugins: {
-          legend: { display: !!compareStats, position: "bottom" },
+          legend: {
+            display: !!compareStats,
+            position: "bottom",
+            labels: { color: tickColor }
+          },
           title: {
             display: false,
             text: `Distribution: ${dieKey.toUpperCase()}${titleSuffix}`,
@@ -1735,6 +1745,7 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", async () => {
   getGlobalStats();
+  watchThemeChanges();
   game.socket.on(`module.${MODULE_ID}`, async (message) => {
     if (!message || typeof message !== "object") return;
     if (message.type === "statsUpdated") {
@@ -1824,14 +1835,29 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
   }
 });
 
-function refreshOpenDashboards() {
+function refreshOpenDashboards(options = {}) {
   const windows = Object.values(ui.windows ?? {});
   for (const app of windows) {
-    if (app instanceof DiceStatsApp) app._refreshCharts();
+    if (app instanceof DiceStatsApp) app._refreshCharts(options);
   }
   for (const app of foundry.applications.instances?.values?.() ?? []) {
-    if (app instanceof DiceStatsApp) app._refreshCharts();
+    if (app instanceof DiceStatsApp) app._refreshCharts(options);
   }
+}
+
+function watchThemeChanges() {
+  if (state.themeObserver) return;
+  if (typeof MutationObserver === "undefined") return;
+  const body = document.body;
+  if (!body) return;
+  state.themeIsDark = body.classList.contains("theme-dark");
+  state.themeObserver = new MutationObserver(() => {
+    const isDark = body.classList.contains("theme-dark");
+    if (isDark === state.themeIsDark) return;
+    state.themeIsDark = isDark;
+    refreshOpenDashboards({ forceThemeRefresh: true });
+  });
+  state.themeObserver.observe(body, { attributes: true, attributeFilter: ["class"] });
 }
 
 Hooks.on("getSceneControlButtons", (controls) => {
