@@ -1,0 +1,24 @@
+<section class="ids-reset">
+  <header class="ids-reset__header">
+    <h2>Reset Dice Stats</h2>
+    <p>Clear stored stats for a player or for everyone.</p>
+  </header>
+
+  <div class="ids-reset__body">
+    <label class="ids-control">
+      <span>Player</span>
+      <select data-reset="user">
+        <option value="all">All Players</option>
+        {{#each users}}
+          <option value="{{id}}">{{name}}</option>
+        {{/each}}
+      </select>
+    </label>
+
+    <div class="ids-reset__actions">
+      <button type="button" class="ids-button ids-button--danger" data-action="reset-selected">
+        Reset Selected
+      </button>
+    </div>
+  </div>
+</section>

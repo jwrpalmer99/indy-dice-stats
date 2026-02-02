@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Copy Files to Folder",
+      "type": "shell",
+      "command": "robocopy . \"$env:LocalAppdata\\FoundryVTT\\Data\\modules\\indy-dice-stats\" /E /XD .git .vscode /XF module.json; if ($lastexitcode -le 8) { exit 0 }",
+      "options": {
+        "shell": {
+          "executable": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "args": ["-NoProfile", "-Command"]
+        }
+      },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,153 @@
+<section class="ids-root">
+  <header class="ids-header">
+    <div class="ids-title">
+      <p class="ids-eyebrow">Indy Dice Stats</p>
+      <h1>Luck Ledger</h1>
+      <p class="ids-subtitle">Track roll distributions by player, action, and die type.</p>
+    </div>
+    <div class="ids-controls">
+      <label class="ids-control">
+        <span title="Choose which player's stats to view.">Player</span>
+        <select data-filter="user">
+          {{#if isGM}}
+            <option value="all" selected>All Players</option>
+          {{/if}}
+          {{#each users}}
+            <option value="{{id}}" {{#if (eq ../defaultUserId id)}}selected{{/if}}>{{name}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <label class="ids-control ids-control--compare">
+        <span title="Select additional players to compare against the chosen player.">Compare Players</span>
+        <select data-filter="compare" multiple>
+          <option value="">None</option>
+          {{#each users}}
+            <option value="{{id}}">{{name}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <label class="ids-control">
+        <span title="Filter stats by roll action type.">Action</span>
+        <select data-filter="action">
+          <option value="all" {{#if (eq defaultAction "all")}}selected{{/if}}>All Actions</option>
+          {{#each actionOptions}}
+            <option value="{{key}}">{{label}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <label class="ids-control">
+        <span title="Filter saving throws, ability checks, or skill checks.">Save/Check</span>
+        <select data-filter="detail">
+          <option value="all">All</option>
+        </select>
+      </label>
+      <label class="ids-control ids-control--die">
+        <span title="Filter stats by die type (d4, d6, d20, etc.).">Die</span>
+        <select data-filter="die">
+          {{#each diceOptions}}
+            <option value="{{this}}" {{#if (eq ../defaultDie this)}}selected{{/if}}>{{this}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <label class="ids-control">
+        <span title="Filter stats to a specific day or all time.">Session</span>
+        <select data-filter="session">
+          <option value="all">All Time</option>
+          <option value="today">Today</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <section class="ids-summary">
+    <div class="ids-card ids-card--stat">
+      <p class="ids-stat-label">Total Dice</p>
+      <p class="ids-stat-value" data-stat="total-dice">0</p>
+      <p class="ids-stat-foot">All recorded dice results</p>
+    </div>
+    <div class="ids-card ids-card--stat">
+      <p class="ids-stat-label">Total Rolls</p>
+      <p class="ids-stat-value" data-stat="total-rolls">0</p>
+      <p class="ids-stat-foot">Roll events captured</p>
+    </div>
+    <div class="ids-card ids-card--stat">
+      <p class="ids-stat-label">Average (Selected Die)</p>
+      <p class="ids-stat-value" data-stat="die-average">-</p>
+      <p class="ids-stat-foot">Mean result for current die</p>
+    </div>
+    <div class="ids-card ids-card--stat">
+      <p class="ids-stat-label">Top Action</p>
+      <p class="ids-stat-value" data-stat="top-action">-</p>
+      <p class="ids-stat-foot">Most rolled category</p>
+    </div>
+  </section>
+
+  <section class="ids-charts">
+    <div class="ids-card ids-chart-card">
+      <div class="ids-chart-header">
+        <p class="ids-chart-title" data-chart-title="distribution">Distribution</p>
+        <label class="ids-toggle" title="Normalize comparisons by percent instead of raw counts.">
+          <input type="checkbox" data-filter="normalize" />
+          <span>Normalize</span>
+        </label>
+      </div>
+      <canvas data-chart="distribution" aria-label="Distribution chart"></canvas>
+    </div>
+    <div class="ids-card ids-chart-card">
+      <canvas data-chart="breakdown" aria-label="Breakdown chart"></canvas>
+    </div>
+  </section>
+
+  <section class="ids-table">
+    <div class="ids-card">
+      <div class="ids-card-header">
+        <h2>Die Summary</h2>
+        <p>Counts, averages, and extremes.</p>
+      </div>
+      <div class="ids-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Die</th>
+              <th>Count</th>
+              <th>Average</th>
+              <th>Min</th>
+              <th>Max</th>
+            </tr>
+          </thead>
+          <tbody data-table="die-summary">
+            <tr>
+              <td colspan="5">No rolls captured yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="ids-compare" data-compare hidden>
+    <div class="ids-card">
+      <div class="ids-card-header">
+        <h2>Player Comparison</h2>
+        <p>Totals by selected player.</p>
+      </div>
+      <div class="ids-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Total Rolls</th>
+              <th>Total Dice</th>
+              <th>Average (Selected Die)</th>
+            </tr>
+          </thead>
+          <tbody data-table="compare-summary">
+            <tr>
+              <td colspan="4">Select two or more players to compare.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</section>

@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Update Foundry Module",
+            "type": "node",
+            "request": "launch",
+            "preLaunchTask": "Copy Files to Folder", // This runs your copy script
+            "program": "${workspaceFolder}/index.js", // VS Code needs this field...
+            "runtimeArgs": ["--version"], // ...but this makes it just print the Node version and quit
+            "internalConsoleOptions": "neverOpen"
+        }
+    ]
+}

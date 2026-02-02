@@ -1,0 +1,15 @@
+{
+  "id": "indy-dice-stats",
+  "title": "Indy Dice Stats",
+  "description": "A module to track and visualise dice stats in 5e.",
+  "version": "#{VERSION}#",
+  "authors": [{ "name": "PinguTwo" }],
+  "compatibility": { "minimum": "13", "verified": "13" },
+  "socket": true,
+  "url": "#{URL}#",
+  "manifest": "#{MANIFEST}#",
+  "download": "#{DOWNLOAD}#",
+  "esmodules": ["scripts/indy-dice-stats.js"],
+  "styles": ["styles/indy-dice-stats.css"]
+}
+
