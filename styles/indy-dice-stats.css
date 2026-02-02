@@ -11,6 +11,18 @@
   --ids-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
 }
 
+.indy-dice-stats-reset,
+.indy-dice-stats-visibility {
+  --ids-ink: #1f2937;
+  --ids-muted: #475569;
+  --ids-accent: #0f766e;
+  --ids-accent-2: #f97316;
+  --ids-sand: #f8f1df;
+  --ids-card: #fff9f0;
+  --ids-border: rgba(15, 118, 110, 0.2);
+  --ids-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
 .indy-dice-stats .window-content {
   padding: 0;
   background: linear-gradient(135deg, #f9f3e6 0%, #e5f4f3 55%, #f8eadf 100%);
@@ -311,6 +323,18 @@ body.theme-dark .indy-dice-stats {
   --ids-shadow: 0 18px 40px rgba(2, 6, 23, 0.55);
 }
 
+body.theme-dark .indy-dice-stats-reset,
+body.theme-dark .indy-dice-stats-visibility {
+  --ids-ink: #e2e8f0;
+  --ids-muted: #94a3b8;
+  --ids-accent: #14b8a6;
+  --ids-accent-2: #fb923c;
+  --ids-sand: #0f172a;
+  --ids-card: #111827;
+  --ids-border: rgba(148, 163, 184, 0.25);
+  --ids-shadow: 0 18px 40px rgba(2, 6, 23, 0.55);
+}
+
 body.theme-dark .indy-dice-stats .window-content {
   background: linear-gradient(135deg, #0f172a 0%, #0b1324 55%, #101b2d 100%);
   color: var(--ids-ink);
@@ -417,7 +441,7 @@ body.theme-dark .indy-dice-stats td {
 .indy-dice-stats-reset select {
   border-radius: 12px;
   border: 1px solid rgba(15, 118, 110, 0.35);
-  background: #ffffff;
+  background: var(--ids-card);
   padding: 10px 36px 10px 12px;
   font-size: 14px;
   color: var(--ids-ink);
