@@ -2017,6 +2017,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
 
     let html = "<div class=\"ids-heatmap__scroll\"><table><tbody>";
 
+    let cellIndex = 0;
     for (const row of rows) {
       html += "<tr>";
       html += `<td class=\"ids-heatmap__row-label\">${row.label}</td>`;
@@ -2024,7 +2025,9 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
         const color = buildHeatmapColor(baseRgb, value, maxValue);
         const dateLabel = dates[idx];
         const title = `${row.label} ${streakType.toUpperCase()} streak on ${dateLabel}: ${value || 0}`;
-        html += `<td class=\"ids-heatmap__cell\" title=\"${title}\" style=\"background-color: ${color}\"></td>`;
+        const delay = Math.min(260, cellIndex * 6);
+        html += `<td class=\"ids-heatmap__cell ids-heatmap__cell--animate\" title=\"${title}\" style=\"background-color: ${color}; --ids-heatmap-delay: ${delay}ms;\"></td>`;
+        cellIndex += 1;
       });
       html += "</tr>";
     }

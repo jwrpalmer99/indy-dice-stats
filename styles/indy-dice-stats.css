@@ -415,6 +415,29 @@
   min-height: var(--ids-heatmap-cell);
 }
 
+.indy-dice-stats .ids-heatmap__cell--animate {
+  animation: ids-heatmap-pop 420ms ease both;
+  animation-delay: var(--ids-heatmap-delay, 0ms);
+  transform-origin: center;
+}
+
+@keyframes ids-heatmap-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .indy-dice-stats .ids-heatmap__cell--animate {
+    animation: none;
+  }
+}
+
 .indy-dice-stats .ids-heatmap__empty {
   display: flex;
   align-items: center;
