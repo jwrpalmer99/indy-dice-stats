@@ -12,12 +12,14 @@ Also works with pf2e but needs more testing, other systems MAY work if they use 
 
 - Tracks roll distributions by player, action type, die type, and session/date.
 - Trend view over time for the selected die (click the Distribution title).
+- Streaks heatmap view (click the Distribution title to cycle views).
 - Supports standard D&D 5e rolls and Midi-QOL workflows.
 - GM-only tools for reset, visibility, and fake data generation.
 - Compare selected players side-by-side.
 - Filters for action type, die type, session, and save/check detail.
 - Uses Foundry Application V2 UI with light/dark mode aware styling.
 - Sockets ensure everyone is kept up to date as rolls happen.
+- Generate fake roll data in module settings so you can try it out!
 
 ## Requirements
 
@@ -37,8 +39,9 @@ Also works with pf2e but needs more testing, other systems MAY work if they use 
 - Open the dashboard from **Game Settings -> Module Settings -> Indy Dice Stats -> Open Dice Dashboard**.
 - Or use the **Scene Controls** button (chart icon) to open the dashboard quickly.
 - Use the filters to narrow stats by player, action, die, session, and save/check detail.
-- Click the Distribution chart title to switch to Trend view (ignores the Session filter).
+- Click the Distribution chart title to cycle Distribution, Trend, and Streaks views.
 - In Trend view, use the Candles toggle to show min/max and quartiles.
+- In Streaks view, use the Min/Max toggle to switch streak type.
 - Select a player to enable the compare list and add additional players to compare.
 
 ## Settings
@@ -66,7 +69,6 @@ Also works with pf2e but needs more testing, other systems MAY work if they use 
 
 - Export stats to CSV/JSON
 - Per-scene or per-campaign segmentation
-- Additional chart types (streaks, distribution curves, over time)
 
 ## License
 
