@@ -2100,6 +2100,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     let values = [];
     let title = "Action Breakdown";
     const hasDetailAction = ["save", "skill", "check", "ability"].includes(actionFilter);
+    const scopedStats = actionFilter === "all" ? stats : buildScopedStats(stats, actionFilter);
 
     if (actionFilter === "all") {
       const actions = stats.actions || {};
@@ -2119,11 +2120,30 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       values = detailKeys.map((key) => Number(details[key]?.count) || 0);
       title = `${ACTION_LABELS[actionFilter] || actionFilter} Types`;
     } else {
-      const scoped = buildScopedStats(stats, actionFilter);
-      const diceKeys = Object.keys(scoped.dice || {}).sort(sortDiceKeys);
+      const diceKeys = Object.keys(scopedStats.dice || {}).sort(sortDiceKeys);
       labels = diceKeys.map((key) => key.toUpperCase());
-      values = diceKeys.map((key) => Number(scoped.dice[key]?.count) || 0);
+      values = diceKeys.map((key) => Number(scopedStats.dice[key]?.count) || 0);
       title = `Dice Mix: ${ACTION_LABELS[actionFilter] || actionFilter}`;
+    }
+
+    if (!hasDetailAction && labels.length <= 1 && detailFilter === "all") {
+      const dieStats = scopedStats.dice?.[dieFilter];
+      const faces = Number(String(dieFilter).replace(/\D/g, ""));
+      if (Number.isFinite(faces) && faces > 0 && dieStats?.results) {
+        labels = Array.from({ length: faces }, (_, i) => String(i + 1));
+        values = labels.map((label) => Number(dieStats.results?.[label]) || 0);
+        title = `Distribution ${dieFilter.toUpperCase()}`;
+      }
+    }
+
+    const entries = labels.map((label, index) => ({
+      label,
+      value: Number(values[index]) || 0
+    }));
+    const nonZero = entries.filter((entry) => entry.value > 0);
+    if (nonZero.length) {
+      labels = nonZero.map((entry) => entry.label);
+      values = nonZero.map((entry) => entry.value);
     }
 
     const dataKey = JSON.stringify({ labels, values, actionFilter, dieFilter, detailFilter });
