@@ -33,6 +33,87 @@ const ACTION_ORDER = [
   "other"
 ];
 
+const FAKE_SESSION_COUNT = 12;
+const FAKE_ROLLS_MIN = 30;
+const FAKE_ROLLS_MAX = 90;
+
+const FAKE_ACTION_TYPES = [
+  "attack",
+  "damage",
+  "save",
+  "check",
+  "skill",
+  "ability",
+  "initiative",
+  "deathsave",
+  "tool",
+  "heal",
+  "spell",
+  "other"
+];
+
+const FAKE_ACTION_POOL = [
+  "attack",
+  "attack",
+  "attack",
+  "damage",
+  "damage",
+  "damage",
+  "save",
+  "skill",
+  "skill",
+  "check",
+  "ability",
+  "initiative",
+  "spell",
+  "heal",
+  "tool",
+  "other"
+];
+
+const FAKE_ABILITIES = ["str", "dex", "con", "int", "wis", "cha"];
+
+const FAKE_SKILLS = [
+  "acrobatics",
+  "animal-handling",
+  "arcana",
+  "athletics",
+  "deception",
+  "history",
+  "insight",
+  "intimidation",
+  "investigation",
+  "medicine",
+  "nature",
+  "perception",
+  "performance",
+  "persuasion",
+  "religion",
+  "sleight-of-hand",
+  "stealth",
+  "survival"
+];
+
+const FAKE_DAMAGE_DICE = [
+  [{ faces: 6, count: 2 }],
+  [{ faces: 8, count: 1 }],
+  [{ faces: 10, count: 1 }],
+  [{ faces: 12, count: 1 }],
+  [{ faces: 4, count: 2 }],
+  [{ faces: 6, count: 1 }, { faces: 4, count: 1 }],
+  [{ faces: 8, count: 2 }]
+];
+
+const FAKE_DAMAGE_FACES = [4, 6, 8, 10, 12];
+
+const FAKE_HEAL_DICE = [
+  [{ faces: 4, count: 1 }],
+  [{ faces: 8, count: 1 }],
+  [{ faces: 10, count: 1 }],
+  [{ faces: 4, count: 2 }],
+  [{ faces: 6, count: 2 }]
+];
+
 const ITEM_ACTION_TYPE_MAP = {
   mwak: "attack",
   rwak: "attack",
@@ -53,7 +134,8 @@ const state = {
   workflowMeta: new Map(),
   processedMessages: new Set(),
   themeObserver: null,
-  themeIsDark: null
+  themeIsDark: null,
+  candlestickRegistered: false
 };
 
 function debounce(fn, waitMs) {
@@ -846,6 +928,182 @@ function getDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function pickRandom(list) {
+  return list[randomInt(0, list.length - 1)];
+}
+
+function buildFakeSessionDates(count) {
+  const dates = [];
+  const today = new Date();
+  for (let i = 0; i < count; i += 1) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    dates.push(getDateKey(date));
+  }
+  return dates;
+}
+
+function buildResultCountsFromDiceSpecs(diceSpecs) {
+  const results = {};
+  for (const spec of diceSpecs) {
+    const faces = Number(spec.faces);
+    const count = Number(spec.count) || 1;
+    if (!Number.isFinite(faces) || faces <= 0) continue;
+    const dieKey = `d${faces}`;
+    const dieResults = results[dieKey] ??= {};
+    for (let i = 0; i < count; i += 1) {
+      const value = randomInt(1, faces);
+      const key = String(value);
+      dieResults[key] = (dieResults[key] || 0) + 1;
+    }
+  }
+  return results;
+}
+
+function sanitizeDamageDiceSpecs(diceSpecs) {
+  const sanitized = (diceSpecs || [])
+    .map((spec) => ({
+      faces: Number(spec.faces),
+      count: Number(spec.count) || 1
+    }))
+    .filter((spec) => Number.isFinite(spec.faces) && FAKE_DAMAGE_FACES.includes(spec.faces));
+
+  return sanitized.length ? sanitized : [{ faces: 8, count: 1 }];
+}
+
+function buildFakeResultsForAction(actionType) {
+  if (actionType === "damage") {
+    return buildResultCountsFromDiceSpecs(sanitizeDamageDiceSpecs(pickRandom(FAKE_DAMAGE_DICE)));
+  }
+  if (actionType === "heal") {
+    return buildResultCountsFromDiceSpecs(pickRandom(FAKE_HEAL_DICE));
+  }
+  if (actionType === "spell") {
+    const useAttack = Math.random() < 0.4;
+    const diceSpecs = useAttack
+      ? [{ faces: 20, count: 1 }]
+      : sanitizeDamageDiceSpecs(pickRandom(FAKE_DAMAGE_DICE));
+    return buildResultCountsFromDiceSpecs(diceSpecs);
+  }
+  return buildResultCountsFromDiceSpecs([{ faces: 20, count: 1 }]);
+}
+
+function getNextFromList(list, state, key) {
+  const idx = state[key] ?? 0;
+  const value = list[idx % list.length];
+  state[key] = idx + 1;
+  return value;
+}
+
+function buildFakeDetailKey(actionType, state, useRandom) {
+  if (actionType === "save") {
+    const ability = useRandom ? pickRandom(FAKE_ABILITIES) : getNextFromList(FAKE_ABILITIES, state, "saveIndex");
+    return `save:${ability}`;
+  }
+  if (actionType === "skill") {
+    const skill = useRandom ? pickRandom(FAKE_SKILLS) : getNextFromList(FAKE_SKILLS, state, "skillIndex");
+    return `skill:${skill}`;
+  }
+  if (actionType === "check" || actionType === "ability") {
+    const ability = useRandom ? pickRandom(FAKE_ABILITIES) : getNextFromList(FAKE_ABILITIES, state, "abilityIndex");
+    return `ability:${ability}`;
+  }
+  return null;
+}
+
+function allocateSkillsForSession(skillQueue, remainingSessions) {
+  if (skillQueue.length === 0) return [];
+  const skills = [skillQueue.shift()];
+  if (skillQueue.length === 0) return skills;
+  const sessionsLeftAfter = remainingSessions - 1;
+  if (sessionsLeftAfter <= 0) {
+    while (skillQueue.length) skills.push(skillQueue.shift());
+    return skills;
+  }
+  const extraNeeded = Math.max(0, skillQueue.length - sessionsLeftAfter);
+  for (let i = 0; i < extraNeeded; i += 1) {
+    if (skillQueue.length === 0) break;
+    skills.push(skillQueue.shift());
+  }
+  return skills;
+}
+
+function generateFakeDataForUser(userId) {
+  if (!userId) return null;
+  const globalStats = getGlobalStats();
+  const userStats = globalStats.users[userId] ??= createEmptyStats();
+  const userByDate = globalStats.usersByDate[userId] ??= {};
+  const detailState = { abilityIndex: 0, skillIndex: 0, saveIndex: 0 };
+  const skillQueue = [...FAKE_SKILLS];
+  const sessionDates = buildFakeSessionDates(FAKE_SESSION_COUNT);
+  let totalRolls = 0;
+
+  for (let idx = 0; idx < sessionDates.length; idx += 1) {
+    const dateKey = sessionDates[idx];
+    const userDateStats = userByDate[dateKey] ??= createEmptyStats();
+    const remainingSessions = sessionDates.length - idx;
+    const skillsThisSession = allocateSkillsForSession(skillQueue, remainingSessions);
+    const extraSkills = Math.max(0, skillsThisSession.length - 1);
+    const minRolls = FAKE_ACTION_TYPES.length + extraSkills;
+    let targetRolls = randomInt(FAKE_ROLLS_MIN, FAKE_ROLLS_MAX);
+    if (targetRolls < minRolls) targetRolls = minRolls;
+    let sessionRolls = 0;
+    let skillIndex = 0;
+
+    for (const actionType of FAKE_ACTION_TYPES) {
+      let detailKey = null;
+      if (actionType === "skill") {
+        const skill = skillsThisSession[skillIndex];
+        if (skill) {
+          detailKey = `skill:${skill}`;
+          skillIndex += 1;
+        } else {
+          detailKey = buildFakeDetailKey("skill", detailState, false);
+        }
+      } else {
+        detailKey = buildFakeDetailKey(actionType, detailState, false);
+      }
+      const results = buildFakeResultsForAction(actionType);
+      recordResultCounts(userStats, actionType, results, 1, detailKey);
+      recordResultCounts(userDateStats, actionType, results, 1, detailKey);
+      sessionRolls += 1;
+    }
+
+    while (skillIndex < skillsThisSession.length) {
+      const skill = skillsThisSession[skillIndex];
+      const detailKey = skill ? `skill:${skill}` : null;
+      const results = buildFakeResultsForAction("skill");
+      recordResultCounts(userStats, "skill", results, 1, detailKey);
+      recordResultCounts(userDateStats, "skill", results, 1, detailKey);
+      sessionRolls += 1;
+      skillIndex += 1;
+    }
+
+    while (sessionRolls < targetRolls) {
+      const actionType = pickRandom(FAKE_ACTION_POOL);
+      const detailKey = buildFakeDetailKey(actionType, detailState, true);
+      const results = buildFakeResultsForAction(actionType);
+      recordResultCounts(userStats, actionType, results, 1, detailKey);
+      recordResultCounts(userDateStats, actionType, results, 1, detailKey);
+      sessionRolls += 1;
+    }
+
+    totalRolls += sessionRolls;
+  }
+
+  globalStats.updatedAt = Date.now();
+  recomputeGlobalStats();
+  scheduleSnapshotBroadcast();
+  scheduleRefresh();
+  scheduleSave();
+
+  return { sessions: sessionDates.length, rolls: totalRolls };
+}
+
 class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
   foundry.applications.api.ApplicationV2
 ) {
@@ -873,7 +1131,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
   constructor(options = {}) {
     super(options);
     this._charts = {};
-    this._chartState = {};
+    this._chartState = { distributionMode: "distribution" };
   }
 
   async _prepareContext() {
@@ -917,9 +1175,17 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     if (!scope) return;
     this._listenersBound = true;
     scope.addEventListener("change", (event) => {
-      if (event.target?.matches?.("select[data-filter], input[data-filter='normalize']")) {
+      if (event.target?.matches?.("select[data-filter], input[data-filter='normalize'], input[data-filter='candles']")) {
         this._refreshCharts();
       }
+    });
+    scope.addEventListener("click", (event) => {
+      const title = event.target?.closest?.("[data-chart-title='distribution']");
+      if (!title) return;
+      this._chartState.distributionMode = this._chartState.distributionMode === "trend"
+        ? "distribution"
+        : "trend";
+      this._refreshCharts();
     });
   }
 
@@ -953,6 +1219,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     const sessionSelect = scope.querySelector("select[data-filter='session']");
     const compareSelect = scope.querySelector("select[data-filter='compare']");
     const normalizeToggle = scope.querySelector("input[data-filter='normalize']");
+    const candlesToggle = scope.querySelector("input[data-filter='candles']");
     const userId = userSelect?.value || (game.user?.isGM ? "all" : game.user?.id);
     let actionFilter = actionSelect?.value || "all";
     let detailFilter = detailSelect?.value || "all";
@@ -961,6 +1228,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     const compareIds = getMultiSelectValues(compareSelect);
     const compareMode = userId !== "all" && compareIds.length > 0;
     const normalize = !!normalizeToggle?.checked;
+    const showCandles = !!candlesToggle?.checked;
 
     const globalStats = getGlobalStats();
     const baseStats = getStatsForSession(globalStats, userId, sessionFilter, getHiddenUserIds());
@@ -977,15 +1245,30 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     scopedStats = actionFilter === "all" ? filteredBaseStats : buildScopedStats(filteredBaseStats, actionFilter);
     scopedStats = applyDetailFilter(scopedStats, actionFilter, detailFilter);
 
+    const showTrend = this._chartState.distributionMode === "trend";
+
     this._renderSummary(root, scopedStats, dieFilter);
     this._renderTable(root, scopedStats);
     this._renderComparisonTable(scope, compareStats, dieFilter);
-    this._renderDistributionHeader(scope, dieFilter, normalize);
+    this._renderDistributionHeader(scope, dieFilter, normalize, showTrend);
     if (chartsReady) {
       if (forceThemeRefresh) {
         this._chartState.breakdownKey = null;
       }
-      this._renderDistributionChart(root, scopedStats, dieFilter, compareStats, normalize);
+      if (showTrend) {
+        this._renderTrendChart(
+          root,
+          globalStats,
+          userId,
+          compareIds,
+          actionFilter,
+          detailFilter,
+          dieFilter,
+          showCandles
+        );
+      } else {
+        this._renderDistributionChart(root, scopedStats, dieFilter, compareStats, normalize);
+      }
       this._renderBreakdownChart(root, filteredBaseStats, actionFilter, dieFilter, detailFilter);
     }
   }
@@ -1104,12 +1387,13 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
 
   _renderSummary(root, stats, dieKey) {
     const totalDice = stats.totals?.dice || 0;
-    const totalRolls = stats.totals?.rolls || 0;
     const dieStats = stats.dice?.[dieKey];
+    const filteredDice = dieStats?.count || 0;
     const avg = dieStats && dieStats.count ? dieStats.sum / dieStats.count : 0;
 
+    setText(root, "[data-stat-label='filtered-dice']", `Filtered Dice (${dieKey.toUpperCase()})`);
     setText(root, "[data-stat='total-dice']", formatNumber(totalDice));
-    setText(root, "[data-stat='total-rolls']", formatNumber(totalRolls));
+    setText(root, "[data-stat='filtered-dice']", formatNumber(filteredDice));
     setText(root, "[data-stat='die-average']", avg ? avg.toFixed(2) : "-");
 
     const mostAction = getMostFrequentAction(stats.actions || {});
@@ -1246,11 +1530,155 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     });
   }
 
-  _renderDistributionHeader(scope, dieKey, normalize) {
+  _renderTrendChart(root, globalStats, userId, compareIds, actionFilter, detailFilter, dieKey, showCandles) {
+    const canvas = root.querySelector("canvas[data-chart='distribution']");
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    this._destroyChart("distribution");
+    ensureChartPlugins();
+
+    const hidden = getHiddenUserIds();
+    const compareMode = userId !== "all" && compareIds.length > 0;
+    const seriesIds = compareMode ? [userId, ...compareIds] : [userId];
+    const series = [];
+    const dateSet = new Set();
+
+    for (const seriesId of seriesIds) {
+      const byDate = getAllSessionStats(globalStats, seriesId, hidden);
+      series.push({ userId: seriesId, byDate });
+      for (const dateKey of Object.keys(byDate || {})) {
+        dateSet.add(dateKey);
+      }
+    }
+
+    const labels = Array.from(dateSet).sort();
+    const palette = buildPalette(series.length);
+    const datasets = series.map((entry, index) => {
+      const color = palette[index % palette.length];
+      const label = entry.userId === "all"
+        ? "All Players"
+        : (game.users.get(entry.userId)?.name || entry.userId);
+      const data = [];
+      const candles = [];
+      for (const dateKey of labels) {
+        const rawStats = entry.byDate?.[dateKey];
+        if (!rawStats) {
+          data.push(null);
+          candles.push(null);
+          continue;
+        }
+        const filtered = getFilteredStats(normalizeStats(rawStats), actionFilter, detailFilter);
+        const summary = computeDieSummary(filtered.dice?.[dieKey]);
+        if (!summary) {
+          data.push(null);
+          candles.push(null);
+          continue;
+        }
+        data.push(summary.avg);
+        candles.push(summary);
+      }
+
+      return {
+        label,
+        data,
+        idsCandles: candles,
+        borderColor: color,
+        backgroundColor: color,
+        tension: 0.25,
+        pointRadius: 3,
+        pointHoverRadius: 4,
+        spanGaps: true
+      };
+    });
+
+    const gridColor = getChartGridColor();
+    const tickColor = getChartTickColor();
+    const faces = Number(String(dieKey).replace(/\D/g, ""));
+    const yMin = Number.isFinite(faces) && faces > 0 ? 1 : undefined;
+    const yMax = Number.isFinite(faces) && faces > 0 ? faces : undefined;
+
+    const showCandlesFlag = !!showCandles;
+
+    this._charts.distribution = new Chart(context, {
+      type: "line",
+      data: {
+        labels,
+        datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: tickColor,
+              maxTicksLimit: 10
+            },
+            offset: true
+          },
+          y: {
+            grid: { color: gridColor },
+            ticks: { color: tickColor },
+            min: yMin,
+            max: yMax
+          }
+        },
+        layout: {
+          padding: { right: 8 }
+        },
+        plugins: {
+          legend: {
+            display: compareMode,
+            position: "bottom",
+            labels: { color: tickColor }
+          },
+          title: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const candle = context.dataset?.idsCandles?.[context.dataIndex];
+                if (!candle) return `${context.dataset.label || "Avg"}: -`;
+                const avg = Number.isFinite(candle.avg) ? candle.avg.toFixed(2) : "-";
+                const min = Number.isFinite(candle.min) ? candle.min : "-";
+                const max = Number.isFinite(candle.max) ? candle.max : "-";
+                if (!showCandlesFlag) {
+                  return `${context.dataset.label || "Avg"}: avg ${avg}, min ${min}, max ${max}`;
+                }
+                const q1 = Number.isFinite(candle.q1) ? candle.q1 : "-";
+                const q3 = Number.isFinite(candle.q3) ? candle.q3 : "-";
+                return `${context.dataset.label || "Avg"}: avg ${avg}, min ${min}, max ${max}, q1 ${q1}, q3 ${q3}`;
+              }
+            }
+          },
+          idsCandlesticks: {
+            enabled: !!showCandles,
+            fillAlpha: 0.22,
+            lineWidth: 2,
+            overlapFactor: 1
+          }
+        }
+      }
+    });
+  }
+
+  _renderDistributionHeader(scope, dieKey, normalize, showTrend = false) {
     const title = scope.querySelector("[data-chart-title='distribution']");
     if (!title) return;
-    const suffix = normalize ? " (Normalized)" : "";
-    title.textContent = `Distribution ${dieKey.toUpperCase()}${suffix}`;
+    const normalizeToggle = scope.querySelector("[data-toggle='normalize']");
+    const candlesToggle = scope.querySelector("[data-toggle='candles']");
+    if (normalizeToggle) normalizeToggle.classList.toggle("is-hidden", showTrend);
+    if (candlesToggle) candlesToggle.classList.toggle("is-hidden", !showTrend);
+    if (showTrend) {
+      title.textContent = `Trend ${dieKey.toUpperCase()}`;
+    } else {
+      const suffix = normalize ? " (Normalized)" : "";
+      title.textContent = `Distribution ${dieKey.toUpperCase()}${suffix}`;
+    }
+    title.setAttribute("title", "Click to toggle distribution vs. trend view.");
   }
 
   _renderComparisonTable(scope, compareStats, dieKey) {
@@ -1292,9 +1720,14 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     if (actionFilter === "all") {
       const actions = stats.actions || {};
       const sortedActions = Object.keys(actions).sort(sortActionKeys);
-      labels = sortedActions.map((key) => ACTION_LABELS[key] || key);
-      values = sortedActions.map((key) => Number(actions[key]?.count) || 0);
-      title = "Action Breakdown";
+      const entries = sortedActions.map((key) => ({
+        label: ACTION_LABELS[key] || key,
+        value: Number(actions[key]?.dice?.[dieFilter]?.count) || 0
+      }));
+      const filtered = entries.filter((entry) => entry.value > 0);
+      labels = filtered.map((entry) => entry.label);
+      values = filtered.map((entry) => entry.value);
+      title = `Action Breakdown (${dieFilter.toUpperCase()})`;
     } else if (hasDetailAction && detailFilter === "all") {
       const details = stats.actions?.[actionFilter]?.details || {};
       const detailKeys = Object.keys(details).sort();
@@ -1473,6 +1906,69 @@ class DiceStatsVisibilityApp extends foundry.applications.api.HandlebarsApplicat
   }
 }
 
+class DiceStatsFakerApp extends foundry.applications.api.HandlebarsApplicationMixin(
+  foundry.applications.api.ApplicationV2
+) {
+  static DEFAULT_OPTIONS = {
+    id: "indy-dice-stats-faker",
+    classes: ["indy-dice-stats-reset", "indy-dice-stats-faker"],
+    window: {
+      title: "Generate Fake Data",
+      icon: "fas fa-dice",
+      resizable: false
+    },
+    position: {
+      width: 460,
+      height: "auto"
+    }
+  };
+
+  static PARTS = {
+    root: {
+      template: `modules/${MODULE_ID}/templates/indy-dice-stats-faker.hbs`,
+      root: true
+    }
+  };
+
+  async _prepareContext() {
+    const users = game.users.contents.map((user) => ({
+      id: user.id,
+      name: user.name || user.id
+    }));
+    return { users, defaultUserId: game.user?.id };
+  }
+
+  async _onRender(context, options) {
+    await super._onRender(context, options);
+    const scope = this.window?.content ?? this.element ?? document.getElementById(this.id);
+    if (!scope) return;
+    scope.addEventListener("click", (event) => {
+      const button = event.target?.closest?.("[data-action='generate-fake-data']");
+      if (button) this._onGenerate(scope);
+    });
+  }
+
+  async _onGenerate(scope) {
+    if (!game.user?.isGM) return;
+    const userId = scope.querySelector("[data-fake='user']")?.value;
+    if (!userId) return;
+    const user = game.users.get(userId);
+    const name = user?.name || userId;
+    const confirmed = await Dialog.confirm({
+      title: "Generate Fake Data",
+      content: `<p>Add fake dice stats for <strong>${name}</strong> across ${FAKE_SESSION_COUNT} sessions (${FAKE_ROLLS_MIN}-${FAKE_ROLLS_MAX} rolls each). Existing stats are not cleared. Continue?</p>`
+    });
+    if (!confirmed) return;
+    const result = generateFakeDataForUser(userId);
+    if (result) {
+      ui.notifications?.info?.(
+        `Indy Dice Stats | Added ${result.rolls} fake rolls across ${result.sessions} sessions for ${name}.`
+      );
+    }
+    this.close();
+  }
+}
+
 function buildScopedStats(base, actionType) {
   const scoped = createEmptyStats();
   const actionStats = base.actions?.[actionType];
@@ -1502,6 +1998,13 @@ function applyDetailFilter(stats, actionFilter, detailFilter) {
   };
   detailStats.dice = detail.dice || {};
   return detailStats;
+}
+
+function getFilteredStats(stats, actionFilter, detailFilter) {
+  if (!stats) return createEmptyStats();
+  let scoped = actionFilter === "all" ? stats : buildScopedStats(stats, actionFilter);
+  scoped = applyDetailFilter(scoped, actionFilter, detailFilter);
+  return scoped;
 }
 
 function getStatsForSession(globalStats, userId, sessionFilter, hiddenSet = null) {
@@ -1534,6 +2037,55 @@ function getStatsForSession(globalStats, userId, sessionFilter, hiddenSet = null
   const userByDate = globalStats.usersByDate?.[userId];
   if (!userByDate) return createEmptyStats();
   return userByDate[dateKey] ? normalizeStats(userByDate[dateKey]) : createEmptyStats();
+}
+
+function getAllSessionStats(globalStats, userId, hiddenSet = null) {
+  if (!globalStats) return {};
+  if (userId === "all") {
+    if (!hiddenSet || hiddenSet.size === 0) return globalStats.byDate || {};
+    const mergedByDate = {};
+    for (const [uid, byDate] of Object.entries(globalStats.usersByDate || {})) {
+      if (hiddenSet.has(uid)) continue;
+      if (!byDate || typeof byDate !== "object") continue;
+      for (const [dateKey, stats] of Object.entries(byDate)) {
+        mergedByDate[dateKey] ??= createEmptyStats();
+        mergeStats(mergedByDate[dateKey], normalizeStats(stats));
+      }
+    }
+    return mergedByDate;
+  }
+  return globalStats.usersByDate?.[userId] || {};
+}
+
+function computeQuantileFromResults(results, quantile) {
+  if (!results || typeof results !== "object") return null;
+  const entries = Object.entries(results)
+    .map(([face, count]) => ({ value: Number(face), count: Number(count) || 0 }))
+    .filter((entry) => Number.isFinite(entry.value) && entry.count > 0)
+    .sort((a, b) => a.value - b.value);
+  if (!entries.length) return null;
+  const total = entries.reduce((sum, entry) => sum + entry.count, 0);
+  if (total <= 0) return null;
+  const threshold = quantile * total;
+  let cumulative = 0;
+  for (const entry of entries) {
+    cumulative += entry.count;
+    if (cumulative >= threshold) return entry.value;
+  }
+  return entries[entries.length - 1].value;
+}
+
+function computeDieSummary(dieStats) {
+  if (!dieStats || !Number.isFinite(dieStats.count) || dieStats.count <= 0) return null;
+  const count = Number(dieStats.count) || 0;
+  if (count <= 0) return null;
+  const sum = Number(dieStats.sum) || 0;
+  const avg = sum / count;
+  const min = Number.isFinite(dieStats.min) ? dieStats.min : avg;
+  const max = Number.isFinite(dieStats.max) ? dieStats.max : avg;
+  const q1 = computeQuantileFromResults(dieStats.results, 0.25) ?? min;
+  const q3 = computeQuantileFromResults(dieStats.results, 0.75) ?? max;
+  return { avg, min, max, q1, q3, count };
 }
 
 function getMultiSelectValues(select) {
@@ -1673,6 +2225,91 @@ function getChartTitleColor() {
     : "#0f172a";
 }
 
+const idsCandlesticksPlugin = {
+  id: "idsCandlesticks",
+  afterDatasetsDraw(chart, args, pluginOptions) {
+    if (!pluginOptions?.enabled) return;
+    const xScale = chart.scales?.x;
+    const yScale = chart.scales?.y;
+    if (!xScale || !yScale) return;
+    const datasets = chart.data?.datasets || [];
+    const labels = chart.data?.labels || [];
+    if (!labels.length) return;
+    const datasetCount = datasets.length;
+    let step = 0;
+    if (typeof xScale.getPixelForTick === "function" && xScale.ticks?.length > 1) {
+      step = Math.abs(xScale.getPixelForTick(1) - xScale.getPixelForTick(0));
+    } else if (labels.length > 1 && typeof xScale.getPixelForValue === "function") {
+      step = Math.abs(xScale.getPixelForValue(1) - xScale.getPixelForValue(0));
+    } else {
+      step = xScale.width || 40;
+    }
+    const groupWidth = step * 0.82;
+    const slotWidth = groupWidth / Math.max(datasetCount, 1);
+    const boxWidth = Math.max(4, Math.min(16, slotWidth * 0.9));
+
+    const ctx = chart.ctx;
+    datasets.forEach((dataset, datasetIndex) => {
+      if (dataset.hidden) return;
+      const candles = dataset.idsCandles || [];
+      const baseColor = Array.isArray(dataset.borderColor)
+        ? dataset.borderColor[0]
+        : (dataset.borderColor || dataset.backgroundColor || "#0f766e");
+      const lineWidth = Number(pluginOptions.lineWidth) || 2;
+      const fillAlpha = Number.isFinite(pluginOptions.fillAlpha) ? pluginOptions.fillAlpha : 0.2;
+      const overlapFactor = Number.isFinite(pluginOptions.overlapFactor) ? pluginOptions.overlapFactor : 0;
+      const offset = (datasetIndex - (datasetCount - 1) / 2) * slotWidth * (1 - overlapFactor);
+
+      candles.forEach((candle, index) => {
+        if (!candle || !Number.isFinite(candle.avg)) return;
+        const baseX = typeof xScale.getPixelForValue === "function"
+          ? xScale.getPixelForValue(labels[index])
+          : xScale.getPixelForTick(index);
+        if (!Number.isFinite(baseX)) return;
+        const x = baseX + offset;
+        const q1 = Number.isFinite(candle.q1) ? candle.q1 : candle.avg;
+        const q3 = Number.isFinite(candle.q3) ? candle.q3 : candle.avg;
+        const yLow = yScale.getPixelForValue(q1);
+        const yHigh = yScale.getPixelForValue(q3);
+        const yMinLine = yScale.getPixelForValue(candle.min);
+        const yMaxLine = yScale.getPixelForValue(candle.max);
+
+        ctx.save();
+        ctx.strokeStyle = baseColor;
+        ctx.lineWidth = lineWidth;
+        ctx.beginPath();
+        ctx.moveTo(x, yMinLine);
+        ctx.lineTo(x, yLow);
+        ctx.moveTo(x, yHigh);
+        ctx.lineTo(x, yMaxLine);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x - boxWidth / 2, yMinLine);
+        ctx.lineTo(x + boxWidth / 2, yMinLine);
+        ctx.moveTo(x - boxWidth / 2, yMaxLine);
+        ctx.lineTo(x + boxWidth / 2, yMaxLine);
+        ctx.stroke();
+
+        const top = Math.min(yLow, yHigh);
+        const height = Math.max(2, Math.abs(yHigh - yLow));
+        ctx.globalAlpha = fillAlpha;
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(x - boxWidth / 2, top, boxWidth, height);
+        ctx.globalAlpha = 1;
+        ctx.strokeRect(x - boxWidth / 2, top, boxWidth, height);
+        ctx.restore();
+      });
+    });
+  }
+};
+
+function ensureChartPlugins() {
+  if (!globalThis.Chart || state.candlestickRegistered) return;
+  Chart.register(idsCandlesticksPlugin);
+  state.candlestickRegistered = true;
+}
+
 Hooks.once("init", () => {
   if (!Handlebars.helpers.eq) {
     Handlebars.registerHelper("eq", (a, b) => a === b);
@@ -1730,6 +2367,15 @@ Hooks.once("init", () => {
     hint: "Choose players to hide from the dice stats dashboard.",
     icon: "fas fa-user-slash",
     type: DiceStatsVisibilityApp,
+    restricted: true
+  });
+
+  game.settings.registerMenu(MODULE_ID, "faker", {
+    name: "Generate Fake Data",
+    label: "Generate Fake Data",
+    hint: "Create fake dice stats for a selected player.",
+    icon: "fas fa-dice",
+    type: DiceStatsFakerApp,
     restricted: true
   });
 

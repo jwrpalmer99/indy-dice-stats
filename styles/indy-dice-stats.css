@@ -141,6 +141,11 @@
   border-color: rgba(148, 163, 184, 0.4);
 }
 
+.indy-dice-stats .ids-control--compare select:disabled option {
+  background: #f1f5f9;
+  color: rgba(71, 85, 105, 0.9);
+}
+
 .indy-dice-stats .ids-control--compare select:disabled + .ids-hint {
   color: rgba(148, 163, 184, 0.9);
 }
@@ -254,6 +259,11 @@
 .indy-dice-stats .ids-chart-title {
   margin: 0;
   font-weight: 600;
+  cursor: pointer;
+}
+
+.indy-dice-stats .ids-chart-title:hover {
+  color: var(--ids-accent);
 }
 
 .indy-dice-stats .ids-toggle {
@@ -407,6 +417,12 @@ body.theme-dark .indy-dice-stats td {
 .indy-dice-stats-reset .ids-reset__body {
   display: grid;
   gap: 16px;
+}
+
+.indy-dice-stats-reset .ids-reset__note {
+  margin: -4px 0 0;
+  font-size: 12px;
+  color: var(--ids-muted);
 }
 
 .indy-dice-stats-reset .ids-reset__actions {

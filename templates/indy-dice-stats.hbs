@@ -66,9 +66,9 @@
       <p class="ids-stat-foot">All recorded dice results</p>
     </div>
     <div class="ids-card ids-card--stat">
-      <p class="ids-stat-label">Total Rolls</p>
-      <p class="ids-stat-value" data-stat="total-rolls">0</p>
-      <p class="ids-stat-foot">Roll events captured</p>
+      <p class="ids-stat-label" data-stat-label="filtered-dice">Filtered Dice</p>
+      <p class="ids-stat-value" data-stat="filtered-dice">0</p>
+      <p class="ids-stat-foot">Count for the selected die</p>
     </div>
     <div class="ids-card ids-card--stat">
       <p class="ids-stat-label">Average (Selected Die)</p>
@@ -86,9 +86,13 @@
     <div class="ids-card ids-chart-card">
       <div class="ids-chart-header">
         <p class="ids-chart-title" data-chart-title="distribution">Distribution</p>
-        <label class="ids-toggle" title="Normalize comparisons by percent instead of raw counts.">
+        <label class="ids-toggle" data-toggle="normalize" title="Normalize comparisons by percent instead of raw counts.">
           <input type="checkbox" data-filter="normalize" />
           <span>Normalize</span>
+        </label>
+        <label class="ids-toggle is-hidden" data-toggle="candles" title="Show candlestick ranges on the trend view.">
+          <input type="checkbox" data-filter="candles" />
+          <span>Candles</span>
         </label>
       </div>
       <canvas data-chart="distribution" aria-label="Distribution chart"></canvas>
