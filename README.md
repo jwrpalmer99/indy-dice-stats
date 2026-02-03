@@ -4,7 +4,8 @@ A Foundry VTT (v13) module for D&D 5e 5.2.5 that tracks dice roll statistics per
 
 <img width="911" height="862" alt="compare_stats" src="https://github.com/user-attachments/assets/c6aed73d-6fb9-4c80-99cd-fa4ce3a78987" />
 
-<img width="799" height="683" alt="stats_light" src="https://github.com/user-attachments/assets/1e73dd9b-bae8-4074-ab1b-0cea7132bd99" />
+<img width="764" height="615" alt="trend_compare" src="https://github.com/user-attachments/assets/9ba7b138-54a6-4313-a657-b5612c64b519" />
+
 
 Also works with pf2e but needs more testing, other systems MAY work if they use standard roll messages in chat.
 
