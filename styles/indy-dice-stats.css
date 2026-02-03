@@ -242,14 +242,16 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  align-items: stretch;
 }
 
 .indy-dice-stats .ids-chart-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  column-gap: 12px;
   margin-bottom: 8px;
+  width: 100%;
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -260,6 +262,13 @@
   margin: 0;
   font-weight: 600;
   cursor: pointer;
+}
+
+.indy-dice-stats .ids-chart-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: end;
 }
 
 .indy-dice-stats .ids-chart-title:hover {
@@ -280,9 +289,55 @@
   accent-color: var(--ids-accent);
 }
 
-.indy-dice-stats .ids-toggle.is-hidden {
+.indy-dice-stats .ids-toggle__input {
+  position: absolute;
   opacity: 0;
   pointer-events: none;
+}
+
+.indy-dice-stats .ids-toggle__track {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.25);
+  transition: background 160ms ease;
+}
+
+.indy-dice-stats .ids-toggle__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+  transition: transform 160ms ease;
+}
+
+.indy-dice-stats .ids-toggle__label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.indy-dice-stats .ids-toggle__input:checked + .ids-toggle__track {
+  background: rgba(15, 118, 110, 0.45);
+}
+
+.indy-dice-stats .ids-toggle__input:checked + .ids-toggle__track .ids-toggle__thumb {
+  transform: translateX(16px);
+}
+
+.indy-dice-stats .ids-toggle[data-toggle='streaks'] .ids-toggle__input:checked + .ids-toggle__track {
+  background: rgba(249, 115, 22, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.5);
+}
+
+
+.indy-dice-stats .ids-toggle.is-hidden {
+  display: none;
 }
 
 .indy-dice-stats canvas {
@@ -291,6 +346,84 @@
   display: block;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.indy-dice-stats .ids-heatmap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  --ids-heatmap-label-width: 110px;
+  --ids-heatmap-cell: 10px;
+  --ids-heatmap-cell-min: 6px;
+  --ids-heatmap-cell-max: 50px;
+  --ids-heatmap-label-font: 10px;
+}
+
+.indy-dice-stats .ids-heatmap[hidden] {
+  display: none;
+}
+
+.indy-dice-stats .ids-heatmap__scroll {
+  height: 100%;
+  overflow: auto;
+}
+
+.indy-dice-stats .ids-heatmap table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  color: var(--ids-ink);
+  table-layout: fixed;
+}
+
+.indy-dice-stats .ids-heatmap th,
+.indy-dice-stats .ids-heatmap td {
+  padding: 2px;
+  text-align: center;
+  border-bottom: 1px solid rgba(15, 118, 110, 0.08);
+  white-space: nowrap;
+}
+
+.indy-dice-stats .ids-heatmap th {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  color: var(--ids-muted);
+  position: sticky;
+  top: 0;
+  background: var(--ids-card);
+  z-index: 1;
+}
+
+.indy-dice-stats .ids-heatmap__row-label {
+  text-align: left;
+  font-weight: 600;
+  padding-right: 6px;
+  font-size: var(--ids-heatmap-label-font);
+  max-width: var(--ids-heatmap-label-width);
+  width: var(--ids-heatmap-label-width);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.indy-dice-stats .ids-heatmap__cell {
+  border-radius: 6px;
+  width: var(--ids-heatmap-cell);
+  height: var(--ids-heatmap-cell);
+  min-width: var(--ids-heatmap-cell);
+  min-height: var(--ids-heatmap-cell);
+}
+
+.indy-dice-stats .ids-heatmap__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--ids-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
 
 .indy-dice-stats .ids-card-header {

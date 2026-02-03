@@ -135,7 +135,9 @@ const state = {
   processedMessages: new Set(),
   themeObserver: null,
   themeIsDark: null,
-  candlestickRegistered: false
+  candlestickRegistered: false,
+  uiStateDebounced: null,
+  uiStatePending: null
 };
 
 function debounce(fn, waitMs) {
@@ -144,6 +146,24 @@ function debounce(fn, waitMs) {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => fn(...args), waitMs);
   };
+}
+
+function getUiState() {
+  return game.settings.get(MODULE_ID, "uiState") || {};
+}
+
+function scheduleUiStateSave(partialState) {
+  const base = state.uiStatePending || getUiState();
+  state.uiStatePending = { ...base, ...partialState };
+  if (!state.uiStateDebounced) {
+    state.uiStateDebounced = debounce(() => {
+      if (!state.uiStatePending) return;
+      const value = state.uiStatePending;
+      state.uiStatePending = null;
+      game.settings.set(MODULE_ID, "uiState", value);
+    }, 300);
+  }
+  state.uiStateDebounced();
 }
 
 function createEmptyStats() {
@@ -155,7 +175,8 @@ function createEmptyStats() {
       dice: 0
     },
     dice: {},
-    actions: {}
+    actions: {},
+    streaks: {}
   };
 }
 
@@ -179,6 +200,7 @@ function normalizeStats(raw) {
   }
   base.dice = raw.dice && typeof raw.dice === "object" ? raw.dice : {};
   base.actions = raw.actions && typeof raw.actions === "object" ? raw.actions : {};
+  base.streaks = raw.streaks && typeof raw.streaks === "object" ? raw.streaks : {};
   return base;
 }
 
@@ -369,6 +391,67 @@ function recordResultCounts(stats, actionType, resultCounts, rollCount = 1, deta
       }
       applyDieResultCount(dieStats, value, count);
       applyDieResultCount(actionDieStats, value, count);
+    }
+  }
+}
+
+function getDieFacesFromKey(dieKey) {
+  const faces = Number(String(dieKey).replace(/\D/g, ""));
+  return Number.isFinite(faces) && faces > 0 ? faces : null;
+}
+
+function getStreakFilterKey(actionType, detailKey) {
+  const action = actionType || "all";
+  const detail = detailKey || "all";
+  return `${action}|${detail}`;
+}
+
+function ensureStreakEntry(stats, actionType, detailKey, dieKey) {
+  stats.streaks ??= {};
+  const key = getStreakFilterKey(actionType, detailKey);
+  const bucket = stats.streaks[key] ??= {};
+  const entry = bucket[dieKey] ??= {
+    currentMin: 0,
+    currentMax: 0,
+    longestMin: 0,
+    longestMax: 0
+  };
+  return entry;
+}
+
+function applyStreakValue(entry, value, faces) {
+  if (value === 1) {
+    entry.currentMin += 1;
+    if (entry.currentMin > entry.longestMin) entry.longestMin = entry.currentMin;
+  } else {
+    entry.currentMin = 0;
+  }
+  if (value === faces) {
+    entry.currentMax += 1;
+    if (entry.currentMax > entry.longestMax) entry.longestMax = entry.currentMax;
+  } else {
+    entry.currentMax = 0;
+  }
+}
+
+function applyStreaksForSequence(stats, actionType, sequenceByDie, detailKey) {
+  if (!stats || !sequenceByDie) return;
+  const filters = [
+    { action: "all", detail: "all" },
+    { action: actionType, detail: "all" }
+  ];
+  if (detailKey) filters.push({ action: actionType, detail: detailKey });
+
+  for (const [dieKey, values] of Object.entries(sequenceByDie)) {
+    const faces = getDieFacesFromKey(dieKey);
+    if (!faces || !Array.isArray(values) || values.length === 0) continue;
+    for (const raw of values) {
+      const value = Number(raw);
+      if (!Number.isFinite(value)) continue;
+      for (const filter of filters) {
+        const entry = ensureStreakEntry(stats, filter.action, filter.detail, dieKey);
+        applyStreakValue(entry, value, faces);
+      }
     }
   }
 }
@@ -683,6 +766,13 @@ function handleRollPayloadsLocally(payloads) {
     const userByDate = globalStats.usersByDate[payload.userId] ??= {};
     const userDateStats = userByDate[dateKey] ??= createEmptyStats();
     recordResultCounts(userDateStats, payload.actionType, payload.results, payload.rolls || 1, payload.detailKey);
+
+    if (payload.sequence && Object.keys(payload.sequence).length) {
+      applyStreaksForSequence(userStats, payload.actionType, payload.sequence, payload.detailKey);
+      applyStreaksForSequence(globalStats, payload.actionType, payload.sequence, payload.detailKey);
+      applyStreaksForSequence(dateStats, payload.actionType, payload.sequence, payload.detailKey);
+      applyStreaksForSequence(userDateStats, payload.actionType, payload.sequence, payload.detailKey);
+    }
   }
   scheduleSnapshotBroadcast();
   scheduleRefresh();
@@ -790,18 +880,88 @@ function mergeResultCounts(target, source) {
   }
 }
 
+function buildResultSequencesFromRoll(roll) {
+  const sequences = {};
+  const diceTerms = Array.isArray(roll?.dice) ? roll.dice : [];
+  if (diceTerms.length) {
+    collectSequencesFromDiceTerms(diceTerms, sequences);
+    return sequences;
+  }
+  const termDice = Array.isArray(roll?.terms)
+    ? roll.terms.filter((term) => term?.class && term.class.includes("Die"))
+    : [];
+  collectSequencesFromDiceTerms(termDice, sequences);
+  return sequences;
+}
+
+function collectSequencesFromDiceTerms(terms, sequences) {
+  for (const die of terms) {
+    const faces = Number(die.faces);
+    if (!Number.isFinite(faces) || faces <= 0) continue;
+    const dieKey = `d${faces}`;
+    const dieSeq = sequences[dieKey] ??= [];
+    const termResults = Array.isArray(die.results) ? die.results : [];
+    for (const result of termResults) {
+      if (result && result.active === false) continue;
+      const value = Number(result?.result);
+      if (!Number.isFinite(value)) continue;
+      const count = Number(result?.count) || 1;
+      for (let i = 0; i < count; i += 1) {
+        dieSeq.push(value);
+      }
+    }
+  }
+}
+
+function mergeResultSequences(target, source) {
+  for (const [dieKey, values] of Object.entries(source || {})) {
+    if (!Array.isArray(values) || values.length === 0) continue;
+    const dest = target[dieKey] ??= [];
+    dest.push(...values);
+  }
+}
+
+function shuffleArray(values) {
+  for (let i = values.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [values[i], values[j]] = [values[j], values[i]];
+  }
+  return values;
+}
+
+function buildSequenceFromResults(results) {
+  const sequences = {};
+  for (const [dieKey, faces] of Object.entries(results || {})) {
+    const values = [];
+    for (const [face, countRaw] of Object.entries(faces || {})) {
+      const value = Number(face);
+      const count = Number(countRaw) || 0;
+      if (!Number.isFinite(value) || count <= 0) continue;
+      for (let i = 0; i < count; i += 1) values.push(value);
+    }
+    if (values.length) sequences[dieKey] = shuffleArray(values);
+  }
+  return sequences;
+}
+
 function buildPayloadFromRolls(rolls, actionType, userId) {
   const payload = {
     userId,
     actionType,
     rolls: 0,
-    results: {}
+    results: {},
+    sequence: {}
   };
   for (const roll of rolls) {
     const results = buildResultCountsFromRoll(roll);
-    if (Object.keys(results).length === 0) continue;
+    const sequences = buildResultSequencesFromRoll(roll);
+    if (Object.keys(results).length === 0 && Object.keys(sequences).length === 0) continue;
     payload.rolls += 1;
     mergeResultCounts(payload.results, results);
+    mergeResultSequences(payload.sequence, sequences);
+  }
+  if (Object.keys(payload.sequence).length === 0) {
+    delete payload.sequence;
   }
   return payload.rolls > 0 ? payload : null;
 }
@@ -1032,6 +1192,13 @@ function allocateSkillsForSession(skillQueue, remainingSessions) {
   return skills;
 }
 
+function applyFakeStreaks(userStats, userDateStats, actionType, results, detailKey) {
+  const sequence = buildSequenceFromResults(results);
+  if (Object.keys(sequence).length === 0) return;
+  applyStreaksForSequence(userStats, actionType, sequence, detailKey);
+  applyStreaksForSequence(userDateStats, actionType, sequence, detailKey);
+}
+
 function generateFakeDataForUser(userId) {
   if (!userId) return null;
   const globalStats = getGlobalStats();
@@ -1070,6 +1237,7 @@ function generateFakeDataForUser(userId) {
       const results = buildFakeResultsForAction(actionType);
       recordResultCounts(userStats, actionType, results, 1, detailKey);
       recordResultCounts(userDateStats, actionType, results, 1, detailKey);
+      applyFakeStreaks(userStats, userDateStats, actionType, results, detailKey);
       sessionRolls += 1;
     }
 
@@ -1079,6 +1247,7 @@ function generateFakeDataForUser(userId) {
       const results = buildFakeResultsForAction("skill");
       recordResultCounts(userStats, "skill", results, 1, detailKey);
       recordResultCounts(userDateStats, "skill", results, 1, detailKey);
+      applyFakeStreaks(userStats, userDateStats, "skill", results, detailKey);
       sessionRolls += 1;
       skillIndex += 1;
     }
@@ -1089,6 +1258,7 @@ function generateFakeDataForUser(userId) {
       const results = buildFakeResultsForAction(actionType);
       recordResultCounts(userStats, actionType, results, 1, detailKey);
       recordResultCounts(userDateStats, actionType, results, 1, detailKey);
+      applyFakeStreaks(userStats, userDateStats, actionType, results, detailKey);
       sessionRolls += 1;
     }
 
@@ -1132,6 +1302,8 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     super(options);
     this._charts = {};
     this._chartState = { distributionMode: "distribution" };
+    this._heatmapObserver = null;
+    this._windowObservers = null;
   }
 
   async _prepareContext() {
@@ -1165,8 +1337,10 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
 
   async _onRender(context, options) {
     await super._onRender(context, options);
+    this._restoreWindowState();
     this._activateListeners();
-    this._refreshCharts();
+    this._bindWindowPersistence();
+    this._refreshCharts({ restoreFilters: true });
   }
 
   _activateListeners() {
@@ -1175,18 +1349,62 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     if (!scope) return;
     this._listenersBound = true;
     scope.addEventListener("change", (event) => {
-      if (event.target?.matches?.("select[data-filter], input[data-filter='normalize'], input[data-filter='candles']")) {
-        this._refreshCharts();
+      if (event.target?.matches?.("select[data-filter], input[data-filter='normalize'], input[data-filter='candles'], input[data-filter='streakType']")) {
+        this._refreshCharts({ persistFilters: true });
       }
     });
     scope.addEventListener("click", (event) => {
       const title = event.target?.closest?.("[data-chart-title='distribution']");
       if (!title) return;
-      this._chartState.distributionMode = this._chartState.distributionMode === "trend"
-        ? "distribution"
-        : "trend";
-      this._refreshCharts();
+      const modes = ["distribution", "trend", "streaks"];
+      const current = this._chartState.distributionMode || "distribution";
+      const idx = modes.indexOf(current);
+      this._chartState.distributionMode = modes[(idx + 1) % modes.length];
+      this._refreshCharts({ persistFilters: true });
     });
+  }
+
+  _restoreWindowState() {
+    const saved = getUiState()?.window;
+    if (!saved || typeof this.setPosition !== "function") return;
+    const position = {};
+    if (Number.isFinite(saved.left)) position.left = saved.left;
+    if (Number.isFinite(saved.top)) position.top = saved.top;
+    if (Number.isFinite(saved.width)) position.width = saved.width;
+    if (Number.isFinite(saved.height)) position.height = saved.height;
+    if (Object.keys(position).length > 0) {
+      this.setPosition(position);
+    }
+  }
+
+  _bindWindowPersistence() {
+    if (this._windowObservers) return;
+    const windowEl = this.window?.element ?? this.element;
+    if (!windowEl || typeof ResizeObserver === "undefined") return;
+
+    const savePosition = () => {
+      const pos = this.position || {};
+      const windowState = {};
+      if (Number.isFinite(pos.left)) windowState.left = Math.round(pos.left);
+      if (Number.isFinite(pos.top)) windowState.top = Math.round(pos.top);
+      if (Number.isFinite(pos.width)) windowState.width = Math.round(pos.width);
+      if (Number.isFinite(pos.height)) windowState.height = Math.round(pos.height);
+      if (Object.keys(windowState).length) {
+        scheduleUiStateSave({ window: windowState });
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(() => savePosition());
+    resizeObserver.observe(windowEl);
+
+    const mutationObserver = new MutationObserver((mutations) => {
+      if (mutations.some((mutation) => mutation.attributeName === "style")) {
+        savePosition();
+      }
+    });
+    mutationObserver.observe(windowEl, { attributes: true, attributeFilter: ["style"] });
+
+    this._windowObservers = { resizeObserver, mutationObserver };
   }
 
   _getRootElement() {
@@ -1200,6 +1418,8 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
 
   async _refreshCharts(options = {}) {
     const forceThemeRefresh = !!options.forceThemeRefresh;
+    const restoreFilters = !!options.restoreFilters;
+    const persistFilters = !!options.persistFilters;
     let chartsReady = true;
     try {
       await ensureChartJs();
@@ -1220,24 +1440,50 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     const compareSelect = scope.querySelector("select[data-filter='compare']");
     const normalizeToggle = scope.querySelector("input[data-filter='normalize']");
     const candlesToggle = scope.querySelector("input[data-filter='candles']");
-    const userId = userSelect?.value || (game.user?.isGM ? "all" : game.user?.id);
-    let actionFilter = actionSelect?.value || "all";
-    let detailFilter = detailSelect?.value || "all";
-    let dieFilter = dieSelect?.value || "d20";
-    const sessionFilter = sessionSelect?.value || "all";
-    const compareIds = getMultiSelectValues(compareSelect);
+    const streakTypeToggle = scope.querySelector("input[data-filter='streakType']");
+    const savedState = restoreFilters ? getUiState() : null;
+    if (savedState?.distributionMode) {
+      this._chartState.distributionMode = savedState.distributionMode;
+    }
+    if (normalizeToggle && typeof savedState?.normalize === "boolean") {
+      normalizeToggle.checked = savedState.normalize;
+    }
+    if (candlesToggle && typeof savedState?.showCandles === "boolean") {
+      candlesToggle.checked = savedState.showCandles;
+    }
+    if (streakTypeToggle && savedState?.streakType) {
+      streakTypeToggle.checked = savedState.streakType === "max";
+    }
+
+    let userId = savedState?.userId || userSelect?.value || (game.user?.isGM ? "all" : game.user?.id);
+    if (userId !== "all" && userId && !game.users.get(userId)) {
+      userId = game.user?.isGM ? "all" : game.user?.id;
+    }
+    let actionFilter = savedState?.actionFilter || actionSelect?.value || "all";
+    let detailFilter = savedState?.detailFilter || detailSelect?.value || "all";
+    let dieFilter = savedState?.dieFilter || dieSelect?.value || "d20";
+    let sessionFilter = savedState?.sessionFilter || sessionSelect?.value || "all";
+    let compareIds = savedState?.compareIds || getMultiSelectValues(compareSelect);
+    if (!Array.isArray(compareIds)) compareIds = [];
+    compareIds = compareIds.filter((id) => id && game.users.get(id));
+    if (userId !== "all") compareIds = compareIds.filter((id) => id !== userId);
     const compareMode = userId !== "all" && compareIds.length > 0;
     const normalize = !!normalizeToggle?.checked;
     const showCandles = !!candlesToggle?.checked;
+    const streakType = streakTypeToggle?.checked ? "max" : "min";
+    const streakLabel = scope.querySelector("[data-toggle='streaks'] .ids-toggle__label");
+    if (streakLabel) streakLabel.textContent = streakType === "max" ? "Max Streak" : "Min Streak";
 
     const globalStats = getGlobalStats();
     const baseStats = getStatsForSession(globalStats, userId, sessionFilter, getHiddenUserIds());
     let scopedStats = actionFilter === "all" ? baseStats : buildScopedStats(baseStats, actionFilter);
 
-    this._syncFilterOptions(scope, globalStats, baseStats, scopedStats, actionFilter, dieFilter);
+    this._syncFilterOptions(scope, globalStats, baseStats, scopedStats, actionFilter, dieFilter, savedState);
     actionFilter = actionSelect?.value || actionFilter;
     detailFilter = detailSelect?.value || detailFilter;
     dieFilter = dieSelect?.value || dieFilter;
+    sessionFilter = sessionSelect?.value || sessionFilter;
+    compareIds = getMultiSelectValues(compareSelect);
     const compareStats = compareMode
       ? buildCompareStats(globalStats, [userId, ...compareIds], sessionFilter, actionFilter, detailFilter)
       : null;
@@ -1245,12 +1491,40 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     scopedStats = actionFilter === "all" ? filteredBaseStats : buildScopedStats(filteredBaseStats, actionFilter);
     scopedStats = applyDetailFilter(scopedStats, actionFilter, detailFilter);
 
-    const showTrend = this._chartState.distributionMode === "trend";
+    const mode = this._chartState.distributionMode || "distribution";
+    const showTrend = mode === "trend";
+    const showStreaks = mode === "streaks";
+    const distributionCanvas = root.querySelector("canvas[data-chart='distribution']");
+    const streakContainer = root.querySelector("[data-chart='streaks']");
+    if (distributionCanvas) distributionCanvas.hidden = showStreaks;
+    if (streakContainer) streakContainer.hidden = !showStreaks;
+
+    const hidden = getHiddenUserIds();
+    const compareUserIds = compareMode ? [userId, ...compareIds] : null;
+    const visibleUserIds = game.users.contents
+      .filter((user) => !hidden.has(user.id))
+      .map((user) => user.id);
+    const streakUserIds = compareUserIds
+      ? compareUserIds
+      : (userId === "all" ? visibleUserIds : [userId]);
+    const streakSource = buildStreakSource(globalStats, streakUserIds, sessionFilter);
 
     this._renderSummary(root, scopedStats, dieFilter);
-    this._renderTable(root, scopedStats);
+    this._renderTable(root, scopedStats, actionFilter, detailFilter, streakSource);
     this._renderComparisonTable(scope, compareStats, dieFilter);
-    this._renderDistributionHeader(scope, dieFilter, normalize, showTrend);
+    this._renderDistributionHeader(scope, dieFilter, normalize, mode);
+    if (showStreaks) {
+      this._renderStreakHeatmap(
+        root,
+        globalStats,
+        userId,
+        compareIds,
+        actionFilter,
+        detailFilter,
+        dieFilter,
+        streakType
+      );
+    }
     if (chartsReady) {
       if (forceThemeRefresh) {
         this._chartState.breakdownKey = null;
@@ -1266,17 +1540,33 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
           dieFilter,
           showCandles
         );
-      } else {
+      } else if (!showStreaks) {
         this._renderDistributionChart(root, scopedStats, dieFilter, compareStats, normalize);
       }
       this._renderBreakdownChart(root, filteredBaseStats, actionFilter, dieFilter, detailFilter);
     }
+
+    if (persistFilters) {
+      scheduleUiStateSave({
+        userId,
+        actionFilter,
+        detailFilter,
+        dieFilter,
+        sessionFilter,
+        compareIds,
+        normalize,
+        showCandles,
+        streakType,
+        distributionMode: this._chartState.distributionMode
+      });
+    }
   }
 
-  _syncFilterOptions(scope, globalStats, baseStats, scopedStats, actionFilter, dieFilter) {
+  _syncFilterOptions(scope, globalStats, baseStats, scopedStats, actionFilter, dieFilter, uiState = null) {
     const actionSelect = scope.querySelector("select[data-filter='action']");
     if (actionSelect) {
-      const selected = actionSelect.value || "all";
+      const preferred = uiState?.actionFilter ?? actionSelect.value;
+      const selected = preferred || "all";
       const options = Object.keys(baseStats.actions || {})
         .sort(sortActionKeys)
         .map((key) => ({ value: key, label: ACTION_LABELS[key] || key }));
@@ -1288,7 +1578,8 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
 
     const detailSelect = scope.querySelector("select[data-filter='detail']");
     if (detailSelect) {
-      const selected = detailSelect.value || "all";
+      const preferred = uiState?.detailFilter ?? detailSelect.value;
+      const selected = preferred || "all";
       const detailOptions = buildDetailOptions(actionFilter, scopedStats);
       const disabled = detailOptions.length === 0;
       detailSelect.disabled = disabled;
@@ -1301,7 +1592,8 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
 
     const dieSelect = scope.querySelector("select[data-filter='die']");
     if (dieSelect) {
-      const selected = dieFilter || dieSelect.value;
+      const preferred = uiState?.dieFilter ?? dieFilter ?? dieSelect.value;
+      const selected = preferred;
       const diceSource = actionFilter === "all" ? baseStats : scopedStats;
       const diceOptions = Object.keys(diceSource?.dice || {})
         .sort(sortDiceKeys)
@@ -1313,7 +1605,8 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
 
     const sessionSelect = scope.querySelector("select[data-filter='session']");
     if (sessionSelect) {
-      const selected = sessionSelect.value || "all";
+      const preferred = uiState?.sessionFilter ?? sessionSelect.value;
+      const selected = preferred || "all";
       const todayKey = getDateKey();
       const dates = getVisibleSessionDates(globalStats, getHiddenUserIds())
         .filter((key) => key !== todayKey)
@@ -1324,7 +1617,8 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
         { value: "today", label: "Today" },
         ...dates.map((dateKey) => ({ value: dateKey, label: dateKey }))
       ];
-      this._replaceSelectOptions(sessionSelect, options, selected);
+      const validSelected = options.some((opt) => opt.value === selected) ? selected : "all";
+      this._replaceSelectOptions(sessionSelect, options, validSelected);
     }
 
     const hidden = getHiddenUserIds();
@@ -1334,7 +1628,8 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
 
     const userSelect = scope.querySelector("select[data-filter='user']");
     if (userSelect) {
-      const selected = userSelect.value || (game.user?.isGM ? "all" : null);
+      const preferred = uiState?.userId ?? userSelect.value;
+      const selected = preferred || (game.user?.isGM ? "all" : null);
       const options = [
         ...(game.user?.isGM ? [{ value: "all", label: "All Players" }] : []),
         ...visibleUsers.map((user) => ({ value: user.id, label: user.name }))
@@ -1351,7 +1646,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       if (isAll) {
         Array.from(compareSelect.options).forEach((option) => (option.selected = false));
       }
-      const selected = getMultiSelectValues(compareSelect);
+      const selected = uiState?.compareIds ?? getMultiSelectValues(compareSelect);
       const options = [
         { value: "", label: "None" },
         ...visibleUsers.map((user) => ({ value: user.id, label: user.name }))
@@ -1400,25 +1695,31 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     setText(root, "[data-stat='top-action']", mostAction ? ACTION_LABELS[mostAction] || mostAction : "-");
   }
 
-  _renderTable(root, stats) {
+  _renderTable(root, stats, actionFilter, detailFilter, streakSource = null) {
     const tbody = root.querySelector("[data-table='die-summary']");
     if (!tbody) return;
     const rows = Object.entries(stats.dice || {})
       .sort(([a], [b]) => sortDiceKeys(a, b))
       .map(([dieKey, dieStats]) => {
         const avg = dieStats.count ? (dieStats.sum / dieStats.count).toFixed(2) : "-";
+        const streakStats = streakSource || stats;
+        const streakEntry = getStreakEntryForFilters(streakStats, actionFilter, detailFilter, dieKey);
+        const minStreak = streakEntry?.longestMin ?? 0;
+        const maxStreak = streakEntry?.longestMax ?? 0;
         return `<tr>
           <td>${dieKey.toUpperCase()}</td>
           <td>${formatNumber(dieStats.count)}</td>
           <td>${avg}</td>
           <td>${dieStats.min ?? "-"}</td>
           <td>${dieStats.max ?? "-"}</td>
+          <td>${minStreak || "-"}</td>
+          <td>${maxStreak || "-"}</td>
         </tr>`;
       });
 
     tbody.innerHTML = rows.length
       ? rows.join("")
-      : "<tr><td colspan='5'>No rolls captured yet.</td></tr>";
+      : "<tr><td colspan='7'>No rolls captured yet.</td></tr>";
   }
 
   _renderDistributionChart(root, stats, dieKey, compareStats, normalize) {
@@ -1665,20 +1966,100 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     });
   }
 
-  _renderDistributionHeader(scope, dieKey, normalize, showTrend = false) {
+  _renderStreakHeatmap(root, globalStats, userId, compareIds, actionFilter, detailFilter, dieKey, streakType) {
+    const container = root.querySelector("[data-chart='streaks']");
+    if (!container) return;
+    const hidden = getHiddenUserIds();
+    const visibleUsers = game.users.contents
+      .filter((user) => !hidden.has(user.id))
+      .map((user) => user.id);
+    const seriesIds = ["all", ...visibleUsers];
+    const series = seriesIds.map((seriesId) => {
+      const label = seriesId === "all"
+        ? "All Players"
+        : (game.users.get(seriesId)?.name || seriesId);
+      return { id: seriesId, label, byDate: getAllSessionStats(globalStats, seriesId, hidden) };
+    });
+
+    const dateSet = new Set();
+    for (const entry of series) {
+      for (const dateKey of Object.keys(entry.byDate || {})) {
+        dateSet.add(dateKey);
+      }
+    }
+    const dates = Array.from(dateSet).sort();
+    if (dates.length === 0) {
+      container.innerHTML = "<div class=\"ids-heatmap__empty\">No streak data yet.</div>";
+      return;
+    }
+    container.dataset.heatmapColumns = String(dates.length);
+
+    const rows = [];
+    let maxValue = 0;
+    for (const entry of series) {
+      const row = { label: entry.label, values: [] };
+      for (const dateKey of dates) {
+        const stats = entry.byDate?.[dateKey];
+        const normalized = stats ? normalizeStats(stats) : null;
+        const streakEntry = normalized
+          ? getStreakEntryForFilters(normalized, actionFilter, detailFilter, dieKey)
+          : null;
+        const value = streakType === "max"
+          ? (Number(streakEntry?.longestMax) || 0)
+          : (Number(streakEntry?.longestMin) || 0);
+        row.values.push(value);
+        if (value > maxValue) maxValue = value;
+      }
+      rows.push(row);
+    }
+
+    const baseRgb = streakType === "max" ? "249, 115, 22" : "15, 118, 110";
+
+    let html = "<div class=\"ids-heatmap__scroll\"><table><tbody>";
+
+    for (const row of rows) {
+      html += "<tr>";
+      html += `<td class=\"ids-heatmap__row-label\">${row.label}</td>`;
+      row.values.forEach((value, idx) => {
+        const color = buildHeatmapColor(baseRgb, value, maxValue);
+        const dateLabel = dates[idx];
+        const title = `${row.label} ${streakType.toUpperCase()} streak on ${dateLabel}: ${value || 0}`;
+        html += `<td class=\"ids-heatmap__cell\" title=\"${title}\" style=\"background-color: ${color}\"></td>`;
+      });
+      html += "</tr>";
+    }
+
+    html += "</tbody></table></div>";
+    container.innerHTML = html;
+
+    updateHeatmapCellSize(container, dates.length);
+    if (!this._heatmapObserver && typeof ResizeObserver !== "undefined") {
+      this._heatmapObserver = new ResizeObserver(() => {
+        const cols = Number(container.dataset.heatmapColumns) || dates.length;
+        updateHeatmapCellSize(container, cols);
+      });
+      this._heatmapObserver.observe(container);
+    }
+  }
+
+  _renderDistributionHeader(scope, dieKey, normalize, mode = "distribution") {
     const title = scope.querySelector("[data-chart-title='distribution']");
     if (!title) return;
     const normalizeToggle = scope.querySelector("[data-toggle='normalize']");
     const candlesToggle = scope.querySelector("[data-toggle='candles']");
-    if (normalizeToggle) normalizeToggle.classList.toggle("is-hidden", showTrend);
-    if (candlesToggle) candlesToggle.classList.toggle("is-hidden", !showTrend);
-    if (showTrend) {
+    const streaksToggle = scope.querySelector("[data-toggle='streaks']");
+    if (normalizeToggle) normalizeToggle.classList.toggle("is-hidden", mode !== "distribution");
+    if (candlesToggle) candlesToggle.classList.toggle("is-hidden", mode !== "trend");
+    if (streaksToggle) streaksToggle.classList.toggle("is-hidden", mode !== "streaks");
+    if (mode === "trend") {
       title.textContent = `Trend ${dieKey.toUpperCase()}`;
+    } else if (mode === "streaks") {
+      title.textContent = `Streaks ${dieKey.toUpperCase()}`;
     } else {
       const suffix = normalize ? " (Normalized)" : "";
       title.textContent = `Distribution ${dieKey.toUpperCase()}${suffix}`;
     }
-    title.setAttribute("title", "Click to toggle distribution vs. trend view.");
+    title.setAttribute("title", "Click to toggle distribution, trend, and streaks view.");
   }
 
   _renderComparisonTable(scope, compareStats, dieKey) {
@@ -2042,19 +2423,60 @@ function getStatsForSession(globalStats, userId, sessionFilter, hiddenSet = null
 function getAllSessionStats(globalStats, userId, hiddenSet = null) {
   if (!globalStats) return {};
   if (userId === "all") {
-    if (!hiddenSet || hiddenSet.size === 0) return globalStats.byDate || {};
     const mergedByDate = {};
     for (const [uid, byDate] of Object.entries(globalStats.usersByDate || {})) {
-      if (hiddenSet.has(uid)) continue;
+      if (hiddenSet && hiddenSet.has(uid)) continue;
       if (!byDate || typeof byDate !== "object") continue;
       for (const [dateKey, stats] of Object.entries(byDate)) {
         mergedByDate[dateKey] ??= createEmptyStats();
         mergeStats(mergedByDate[dateKey], normalizeStats(stats));
+        mergeStreaksMax(mergedByDate[dateKey], normalizeStats(stats));
       }
     }
     return mergedByDate;
   }
   return globalStats.usersByDate?.[userId] || {};
+}
+
+function mergeStreaksMax(target, source) {
+  const srcStreaks = source?.streaks;
+  if (!srcStreaks || typeof srcStreaks !== "object") return;
+  target.streaks ??= {};
+  for (const [filterKey, dieMap] of Object.entries(srcStreaks)) {
+    if (!dieMap || typeof dieMap !== "object") continue;
+    const targetMap = target.streaks[filterKey] ??= {};
+    for (const [dieKey, entry] of Object.entries(dieMap)) {
+      if (!entry || typeof entry !== "object") continue;
+      const targetEntry = targetMap[dieKey] ??= {
+        currentMin: 0,
+        currentMax: 0,
+        longestMin: 0,
+        longestMax: 0
+      };
+      const longestMin = Number(entry.longestMin) || 0;
+      const longestMax = Number(entry.longestMax) || 0;
+      if (longestMin > targetEntry.longestMin) targetEntry.longestMin = longestMin;
+      if (longestMax > targetEntry.longestMax) targetEntry.longestMax = longestMax;
+    }
+  }
+}
+
+function buildStreakSource(globalStats, userIds, sessionFilter) {
+  const merged = createEmptyStats();
+  merged.streaks = {};
+  if (!globalStats || !Array.isArray(userIds) || userIds.length === 0) return merged;
+  const dateKey = sessionFilter === "all"
+    ? null
+    : (sessionFilter === "today" ? getDateKey() : sessionFilter);
+  for (const userId of userIds) {
+    if (!userId) continue;
+    const stats = dateKey
+      ? globalStats.usersByDate?.[userId]?.[dateKey]
+      : globalStats.users?.[userId];
+    if (!stats) continue;
+    mergeStreaksMax(merged, normalizeStats(stats));
+  }
+  return merged;
 }
 
 function computeQuantileFromResults(results, quantile) {
@@ -2086,6 +2508,60 @@ function computeDieSummary(dieStats) {
   const q1 = computeQuantileFromResults(dieStats.results, 0.25) ?? min;
   const q3 = computeQuantileFromResults(dieStats.results, 0.75) ?? max;
   return { avg, min, max, q1, q3, count };
+}
+
+function getStreakEntryForFilters(stats, actionFilter, detailFilter, dieKey) {
+  if (!stats || !dieKey) return null;
+  const actionKey = actionFilter && actionFilter !== "all" ? actionFilter : "all";
+  const hasDetailAction = ["save", "skill", "check", "ability"].includes(actionKey);
+  const detailKey = hasDetailAction && detailFilter && detailFilter !== "all"
+    ? detailFilter
+    : "all";
+  const filterKey = getStreakFilterKey(actionKey, detailKey);
+  return stats.streaks?.[filterKey]?.[dieKey] || null;
+}
+
+function buildHeatmapColor(baseRgb, value, maxValue) {
+  if (!value || !maxValue) return "transparent";
+  const ratio = Math.min(1, value / maxValue);
+  const alpha = 0.12 + ratio * 0.68;
+  return `rgba(${baseRgb}, ${alpha.toFixed(2)})`;
+}
+
+function readCssNumber(value, fallback) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function updateHeatmapCellSize(container, columns) {
+  if (!container || !Number.isFinite(columns) || columns <= 0) return;
+  const styles = getComputedStyle(container);
+  const labelWidth = readCssNumber(styles.getPropertyValue("--ids-heatmap-label-width"), 110);
+  const minCell = readCssNumber(styles.getPropertyValue("--ids-heatmap-cell-min"), 6);
+  const maxCell = readCssNumber(styles.getPropertyValue("--ids-heatmap-cell-max"), 16);
+  const minLabelFont = 9;
+  const maxLabelFont = 12;
+  const scroll = container.querySelector(".ids-heatmap__scroll");
+  const width = scroll?.clientWidth || container.clientWidth || 0;
+  const available = Math.max(0, width - labelWidth - 12);
+  const rawSize = Math.floor(available / columns);
+  let size = Math.max(minCell, Math.min(maxCell, rawSize || minCell));
+  if (!scroll) {
+    container.style.setProperty("--ids-heatmap-cell", `${size}px`);
+    const labelFont = Math.max(minLabelFont, Math.min(maxLabelFont, Math.floor(size * 0.95)));
+    container.style.setProperty("--ids-heatmap-label-font", `${labelFont}px`);
+    return;
+  }
+
+  for (let i = 0; i < 30; i += 1) {
+    container.style.setProperty("--ids-heatmap-cell", `${size}px`);
+    const labelFont = Math.max(minLabelFont, Math.min(maxLabelFont, Math.floor(size * 0.95)));
+    container.style.setProperty("--ids-heatmap-label-font", `${labelFont}px`);
+
+    const hasOverflow = scroll.scrollWidth > scroll.clientWidth || scroll.scrollHeight > scroll.clientHeight;
+    if (!hasOverflow || size <= minCell) break;
+    size -= 1;
+  }
 }
 
 function getMultiSelectValues(select) {
@@ -2341,6 +2817,14 @@ Hooks.once("init", () => {
     config: false,
     type: Array,
     default: []
+  });
+
+  game.settings.register(MODULE_ID, "uiState", {
+    name: "Indy Dice Stats UI State",
+    scope: "client",
+    config: false,
+    type: Object,
+    default: {}
   });
 
   game.settings.registerMenu(MODULE_ID, "viewer", {

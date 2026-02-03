@@ -86,16 +86,32 @@
     <div class="ids-card ids-chart-card">
       <div class="ids-chart-header">
         <p class="ids-chart-title" data-chart-title="distribution">Distribution</p>
-        <label class="ids-toggle" data-toggle="normalize" title="Normalize comparisons by percent instead of raw counts.">
-          <input type="checkbox" data-filter="normalize" />
-          <span>Normalize</span>
-        </label>
-        <label class="ids-toggle is-hidden" data-toggle="candles" title="Show candlestick ranges on the trend view.">
-          <input type="checkbox" data-filter="candles" />
-          <span>Candles</span>
-        </label>
+        <div class="ids-chart-controls">
+          <label class="ids-toggle" data-toggle="normalize" title="Normalize comparisons by percent instead of raw counts.">
+            <input class="ids-toggle__input" type="checkbox" data-filter="normalize" />
+            <span class="ids-toggle__track">
+              <span class="ids-toggle__thumb"></span>
+            </span>
+            <span class="ids-toggle__label">Normalize</span>
+          </label>
+          <label class="ids-toggle is-hidden" data-toggle="candles" title="Show candlestick ranges on the trend view.">
+            <input class="ids-toggle__input" type="checkbox" data-filter="candles" />
+            <span class="ids-toggle__track">
+              <span class="ids-toggle__thumb"></span>
+            </span>
+            <span class="ids-toggle__label">Candles</span>
+          </label>
+          <label class="ids-toggle is-hidden" data-toggle="streaks" title="Toggle between min/max streak heatmaps.">
+            <input class="ids-toggle__input" type="checkbox" data-filter="streakType" />
+            <span class="ids-toggle__track">
+              <span class="ids-toggle__thumb"></span>
+            </span>
+            <span class="ids-toggle__label">Max Streak</span>
+          </label>
+        </div>
       </div>
       <canvas data-chart="distribution" aria-label="Distribution chart"></canvas>
+      <div class="ids-heatmap" data-chart="streaks" hidden></div>
     </div>
     <div class="ids-card ids-chart-card">
       <canvas data-chart="breakdown" aria-label="Breakdown chart"></canvas>
@@ -117,6 +133,8 @@
               <th>Average</th>
               <th>Min</th>
               <th>Max</th>
+              <th>Min Streak</th>
+              <th>Max Streak</th>
             </tr>
           </thead>
           <tbody data-table="die-summary">
