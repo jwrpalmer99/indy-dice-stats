@@ -202,6 +202,8 @@ function applyFontPreview(fontBody, fontTitle, bodyScale, titleScale) {
     if (bodyScale !== undefined) root.style.setProperty("--ids-font-body-scale", String(bodyScale));
     if (titleScale !== undefined) root.style.setProperty("--ids-font-title-scale", String(titleScale));
   }
+
+  refreshOpenDashboards({ forceThemeRefresh: true });
 }
 
 function getFontChoices() {

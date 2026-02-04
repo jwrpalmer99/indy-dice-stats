@@ -425,7 +425,9 @@ function renderBreakdownChart(app, root, stats, actionFilter, dieFilter, detailF
   if (!context) return;
   const scope = root ?? app.window?.content ?? app.element ?? document.getElementById(app.id);
   const host = scope?.closest?.(".indy-dice-stats") || scope?.querySelector?.(".indy-dice-stats") || document.body;
-  const titleFont = getComputedStyle(host).getPropertyValue("--ids-font-title").trim() || "Fraunces";
+  const computed = getComputedStyle(host);
+  const bodyFont = computed.getPropertyValue("--ids-font-body").trim() || "Manrope";
+  const bodyScale = Number.parseFloat(computed.getPropertyValue("--ids-font-body-scale")) || 1;
 
   let labels = [];
   let values = [];
@@ -536,8 +538,9 @@ function renderBreakdownChart(app, root, stats, actionFilter, dieFilter, detailF
 
   const palette = hasData ? buildPalette(values.length) : ["rgba(60, 70, 80, 0.25)"];
 
+  const mutedColor = computed.getPropertyValue("--ids-muted").trim() || getChartTickColor();
   const legendColor = getChartTickColor();
-  const titleColor = getChartTitleColor();
+  const titleColor = mutedColor;
 
   canvas.oncontextmenu = (event) => {
     event.preventDefault();
@@ -607,13 +610,13 @@ function renderBreakdownChart(app, root, stats, actionFilter, dieFilter, detailF
           display: true,
           text: title,
           color: titleColor,
-          font: { size: 16, family: titleFont }
+          font: { size: 12 * bodyScale, family: bodyFont, weight: "600" }
         },
         subtitle: {
           display: !!subtitle,
           text: subtitle,
           color: titleColor,
-          font: { size: 12, family: titleFont, style: "normal" }
+          font: { size: 11 * bodyScale, family: bodyFont, style: "normal", weight: "400" }
         }
       }
     }
