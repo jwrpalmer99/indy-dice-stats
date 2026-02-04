@@ -15,6 +15,8 @@ Also works with pf2e but needs more testing, other systems MAY work if they use 
 - Trend view over time for the selected die (click the Distribution title).
 - Streaks heatmap view (click the Distribution title to cycle views).
 - Supports standard D&D 5e rolls and Midi-QOL workflows.
+- Live "Latest Roll" monitor (optional, with d20-only and privacy-aware display).
+- Optional floating monitor window (scene control eye icon).
 - GM-only tools for reset, visibility, and fake data generation.
 - Compare selected players side-by-side.
 - Filters for action type, die type, session, and save/check detail.
@@ -39,6 +41,7 @@ Also works with pf2e but needs more testing, other systems MAY work if they use 
 
 - Open the dashboard from **Game Settings -> Module Settings -> Indy Dice Stats -> Open Dice Dashboard**.
 - Or use the **Scene Controls** button (chart icon) to open the dashboard quickly.
+- Use the **Scene Controls** eye icon to toggle the floating monitor window (double-click it to open the main dashboard).
 - Use the filters to narrow stats by player, action, die, session, and save/check detail.
 - Click the Distribution chart title to cycle Distribution, Trend, and Streaks views.
 - In Trend view, use the Candles toggle to show min/max and quartiles.
@@ -49,6 +52,20 @@ Also works with pf2e but needs more testing, other systems MAY work if they use 
 
 - **Enable dice tracking** (World)
   - Toggle whether rolls are recorded.
+- **Record Self Rolls** (World)
+  - Record self-only rolls in stats.
+- **Record Private GM Rolls** (World)
+  - Record GM private rolls (gmroll) in stats.
+- **Record Blind GM Rolls** (World)
+  - Record GM blind rolls (blindroll) in stats.
+- **Allow Players to See GM Stats** (World)
+  - Include/exclude GM stats from non-GM views and All Players.
+- **Show Latest Roll** (Client)
+  - Show the "Latest Roll" monitor area in the title.
+- **Only Monitor d20** (Client)
+  - Only update the title monitor when a roll includes a d20.
+- **Debug Midi-QOL Roll Capture** (Client)
+  - Log Midi-QOL roll capture details to the console.
 
 - **Reset Dice Stats** (GM-only menu)
   - Clear all stats or a specific player.
