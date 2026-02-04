@@ -92,6 +92,10 @@
   overflow: auto;
 }
 
+.indy-dice-stats-monitor.window-app .window-content {
+  overflow: hidden;
+}
+
 .indy-dice-stats .ids-root {
   min-height: 100%;
   display: flex;
@@ -112,7 +116,7 @@
 
 .indy-dice-stats .ids-header {
   display: grid;
-  grid-template-columns: 174px 1fr;
+  grid-template-columns: 220x 1fr;
   gap: 6px;
   align-items: center;
 }
@@ -294,6 +298,7 @@
   font-size: calc(11px * var(--ids-font-body-scale, 1));
   color: var(--ids-ink);
 }
+
 
 .indy-dice-stats .ids-roll-die--adv {
   background: rgba(114, 147, 126, 0.18);

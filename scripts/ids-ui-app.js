@@ -553,12 +553,6 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
 
     const fragment = document.createDocumentFragment();
     const actionLabel = this._formatLatestRollAction(latestRoll);
-    if (actionLabel) {
-      const actionSpan = document.createElement("span");
-      actionSpan.className = "ids-roll-action";
-      actionSpan.textContent = actionLabel;
-      fragment.appendChild(actionSpan);
-    }
     if (latestRoll.advantage) {
       const advSpan = document.createElement("span");
       const isDis = latestRoll.advantage === "disadvantage";
@@ -574,10 +568,17 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       emptySpan.textContent = "No dice results";
       fragment.appendChild(emptySpan);
     } else {
+      const showSegmentLabels = segments.length > 1;
+      if (actionLabel && segments.length === 1) {
+        const actionSpan = document.createElement("span");
+        actionSpan.className = "ids-roll-action";
+        actionSpan.textContent = actionLabel;
+        fragment.appendChild(actionSpan);
+      }
       for (const segment of segments) {
         const block = document.createElement("span");
         block.className = "ids-roll-block";
-        if (segment.actionLabel) {
+        if (showSegmentLabels && segment.actionLabel) {
           const actionSpan = document.createElement("span");
           actionSpan.className = "ids-roll-action";
           actionSpan.textContent = segment.actionLabel;
@@ -1020,6 +1021,12 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
     applyFontSettings(scope);
     const stored = this._getStoredPosition();
     if (stored) this.setPosition(stored);
+    if (!this._baseMonitorHeight) {
+      this._baseMonitorHeight = this.position?.height || DiceStatsMonitorApp.DEFAULT_OPTIONS?.position?.height || 166;
+    }
+    if (!this._baseMonitorWidth) {
+      this._baseMonitorWidth = this.position?.width || DiceStatsMonitorApp.DEFAULT_OPTIONS?.position?.width || 200;
+    }
     this._bindOpenDashboard(scope);
     this._enableDrag(scope);
     this._renderLatestRoll(scope);
@@ -1171,10 +1178,11 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
       emptySpan.textContent = "No dice results";
       fragment.appendChild(emptySpan);
     } else {
+      const showSegmentLabels = segments.length > 1;
       for (const segment of segments) {
         const block = document.createElement("span");
         block.className = "ids-roll-block";
-        if (segment.actionLabel) {
+        if (showSegmentLabels && segment.actionLabel) {
           const actionSpan = document.createElement("span");
           actionSpan.className = "ids-roll-action";
           actionSpan.textContent = segment.actionLabel;
@@ -1188,6 +1196,41 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
     }
 
     detailEl.appendChild(fragment);
+    this._resizeToContent(container);
+  }
+
+  _resizeToContent(container) {
+    if (!container || !this.setPosition) return;
+    const baseHeight = Number(this._baseMonitorHeight) || 166;
+    requestAnimationFrame(() => {
+      const root = this._getRootElement?.() || container;
+      if (!root) return;
+      const detailEl = root.querySelector("[data-live-roll-details]");
+      let contentWidth = root.scrollWidth;
+      if (detailEl) {
+        let maxWidth = 0;
+        const chips = detailEl.querySelectorAll(".ids-roll-die");
+        chips.forEach((chip) => {
+          const width = chip.getBoundingClientRect().width;
+          if (width > maxWidth) maxWidth = width;
+        });
+        if (maxWidth > 0) contentWidth = maxWidth;
+      }
+      const liveView = root.querySelector("[data-live-roll-live]") || root.querySelector("[data-live-roll-default]") || root;
+      const liveHeight = liveView?.getBoundingClientRect ? liveView.getBoundingClientRect().height : 0;
+      const contentHeight = Math.max(liveHeight + 24, baseHeight);
+      if (!Number.isFinite(contentHeight) || !Number.isFinite(contentWidth)) return;
+      const targetHeight = Math.min(Math.max(contentHeight + 8, baseHeight), 360);
+      const baseWidth = Number(this._baseMonitorWidth) || this.position?.width || DiceStatsMonitorApp.DEFAULT_OPTIONS?.position?.width || 200;
+      const viewportWidth = Math.max(320, (window?.innerWidth || 800) - 40);
+      const style = window?.getComputedStyle ? window.getComputedStyle(root) : null;
+      const padX = style ? (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0) : 0;
+      const targetWidth = Math.min(Math.max(contentWidth + padX + 16, baseWidth), viewportWidth);
+      const currentHeight = this.position?.height || baseHeight;
+      const currentWidth = this.position?.width || baseWidth;
+      if (Math.abs(targetHeight - currentHeight) < 2 && Math.abs(targetWidth - currentWidth) < 2) return;
+      this.setPosition({ height: targetHeight, width: targetWidth });
+    });
   }
 
   _getLatestRollSegments(latestRoll) {

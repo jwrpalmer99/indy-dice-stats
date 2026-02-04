@@ -54,6 +54,19 @@ export function normalizeStats(raw) {
   return base;
 }
 
+function parseRollJson(roll, cache) {
+  if (typeof roll !== "string") return null;
+  if (cache?.has(roll)) return cache.get(roll);
+  let parsed = null;
+  try {
+    parsed = JSON.parse(roll);
+  } catch (err) {
+    parsed = null;
+  }
+  cache?.set(roll, parsed);
+  return parsed;
+}
+
 export function normalizeGlobalStats(raw) {
   const base = createGlobalStats();
   if (!raw || typeof raw !== "object") return base;
@@ -801,8 +814,13 @@ export function scheduleSnapshotBroadcast() {
 export function scheduleRefresh() {
   if (!state.refreshDebounced) {
     state.refreshDebounced = debounce(() => {
+      const shouldRender = (app) => {
+        const id = app?.id || app?.options?.id;
+        return typeof id === "string" && id.startsWith("indy-dice-stats");
+      };
       for (const app of foundry.applications.instances?.values?.() ?? []) {
-        if (app instanceof foundry.applications.api.ApplicationV2) {
+        if (!shouldRender(app)) continue;
+        if (app?.rendered || app?._state > 0) {
           app.render({ force: true });
         }
       }
@@ -874,8 +892,7 @@ export function collectWorkflowRolls(workflow, options = {}) {
     addList("workflow.damageRolls", workflow.damageRolls);
   } else if (Array.isArray(workflow.damageRolls?.contents)) {
     addList("workflow.damageRolls.contents", workflow.damageRolls.contents);
-  }
-  if (workflow.damageRoll) addRoll(workflow.damageRoll, "workflow.damageRoll");
+  } else if (workflow.damageRoll) addRoll(workflow.damageRoll, "workflow.damageRoll");
   if (workflow.saveRoll) addRoll(workflow.saveRoll, "workflow.saveRoll");
   if (Array.isArray(workflow.saves)) {
     addList("workflow.saves", workflow.saves);
@@ -884,10 +901,13 @@ export function collectWorkflowRolls(workflow, options = {}) {
   }
 
   const unique = [];
-  const seen = new Set();
+  const seenObjects = new Set();
   for (const roll of rolls) {
-    if (!roll || seen.has(roll)) continue;
-    seen.add(roll);
+    if (!roll) continue;
+    if (typeof roll === "object") {
+      if (seenObjects.has(roll)) continue;
+      seenObjects.add(roll);
+    }
     unique.push(roll);
   }
 
@@ -1264,19 +1284,22 @@ export function buildPayloadsFromRolls(rolls, fallbackAction, userId, message, w
   const payloadsByKey = {};
   const visibility = extractVisibilityFromMessage(message, userId);
   const messageId = message?.id || message?._id || null;
+  const rollCache = new Map();
   for (const roll of rolls) {
     if (!roll) continue;
-    const actionType = resolveRollActionType(roll, fallbackAction);
-    const detailKey = resolveRollDetailKey(roll, actionType, message, workflowMeta);
-    const advantage = extractAdvantageState(roll, message);
+    const parsed = parseRollJson(roll, rollCache);
+    const effectiveRoll = parsed || roll;
+    const actionType = resolveRollActionType(effectiveRoll, fallbackAction);
+    const detailKey = resolveRollDetailKey(effectiveRoll, actionType, message, workflowMeta);
+    const advantage = extractAdvantageState(effectiveRoll, message);
     const payloadKey = `${actionType}|${detailKey || "all"}`;
     const payload = payloadsByKey[payloadKey] ??= buildPayloadFromRolls([], actionType, userId);
     payload.detailKey = detailKey;
     payload.advantage = mergeAdvantageState(payload.advantage, advantage);
     if (!payload.visibility && visibility) payload.visibility = visibility;
     if (!payload.messageId && messageId) payload.messageId = messageId;
-    const results = buildResultCountsFromRoll(roll);
-    const sequences = buildResultSequencesFromRoll(roll);
+    const results = buildResultCountsFromRoll(effectiveRoll);
+    const sequences = buildResultSequencesFromRoll(effectiveRoll);
     if (Object.keys(results).length === 0 && Object.keys(sequences).length === 0) continue;
     mergeResultCounts(payload.results, results);
     mergeResultSequences(payload.sequence, sequences);

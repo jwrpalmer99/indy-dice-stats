@@ -116,7 +116,7 @@ Hooks.once("init", () => {
 
   game.settings.register(MODULE_ID, "rollProcessingDelayMs", {
     name: "Roll Processing Delay (ms)",
-    hint: "Delay processing chat and Midi-QOL rolls to allow dice animations to finish.",
+    hint: "Delay processing chat and Midi-QOL rolls. When Dice So Nice is active, processing waits for its completion hook instead of this delay.",
     scope: "world",
     config: true,
     type: Number,
@@ -280,6 +280,34 @@ Hooks.once("init", () => {
   }
 });
 
+const diceSoNiceState = {
+  active: false,
+  lastStartAt: 0,
+  activeMessages: new Set(),
+  pendingHandlers: new Map()
+};
+
+function resolveDiceSoNiceMessageId(messageId, data) {
+  if (typeof messageId === "string" && messageId.length) return messageId;
+  const candidate = data?.messageId || data?.message?._id || data?.message?.id || data?._id;
+  return typeof candidate === "string" && candidate.length ? candidate : null;
+}
+
+function scheduleRollProcessing(messageId, handler) {
+  const delayMs = Math.max(0, Number(game.settings.get(MODULE_ID, "rollProcessingDelayMs")) || 0);
+  const hasMessage = typeof messageId === "string" && messageId.length;
+  if (hasMessage) {
+    diceSoNiceState.pendingHandlers.set(messageId, handler);
+    if (diceSoNiceState.activeMessages.has(messageId)) return;
+  }
+  setTimeout(() => {
+    if (hasMessage && diceSoNiceState.pendingHandlers.has(messageId)) {
+      diceSoNiceState.pendingHandlers.delete(messageId);
+    }
+    handler();
+  }, delayMs);
+}
+
 Hooks.once("ready", async () => {
   getGlobalStats();
   watchThemeChanges();
@@ -321,6 +349,30 @@ Hooks.once("ready", async () => {
       if (payload.messageId) markMessageProcessed(payload.messageId);
     }
   });
+});
+
+Hooks.on("diceSoNiceRollStart", (messageId, data) => {
+  console.log("Indy Dice Stats | diceSoNiceRollStart", { messageId, data });
+  diceSoNiceState.active = true;
+  diceSoNiceState.lastStartAt = Date.now();
+  const resolved = resolveDiceSoNiceMessageId(messageId, data);
+  if (resolved) diceSoNiceState.activeMessages.add(resolved);
+});
+
+Hooks.on("diceSoNiceRollComplete", (messageId, data) => {
+  console.log("Indy Dice Stats | diceSoNiceRollComplete", { messageId, data });
+  const resolved = resolveDiceSoNiceMessageId(messageId, data);
+  if (resolved) {
+    diceSoNiceState.activeMessages.delete(resolved);
+    const pending = diceSoNiceState.pendingHandlers.get(resolved);
+    if (pending) {
+      diceSoNiceState.pendingHandlers.delete(resolved);
+      pending();
+    }
+  }
+  if (diceSoNiceState.activeMessages.size === 0 && Date.now() - diceSoNiceState.lastStartAt > 200) {
+    diceSoNiceState.active = false;
+  }
 });
 
 function applyFontPreview(fontBody, fontTitle, bodyScale, titleScale, chartLegendScale) {
@@ -498,13 +550,22 @@ Hooks.on("preCreateChatMessage", (message) => {
 });
 
 Hooks.on("createChatMessage", async (message, options, userId) => {
-  const delayMs = Math.max(0, Number(game.settings.get(MODULE_ID, "rollProcessingDelayMs")) || 0);
-  setTimeout(() => {
+  if (!message || !game.settings.get(MODULE_ID, "enabled")) return;
+  if (!game.user?.isGM && message.user?.id && game.user?.id && message.user.id !== game.user.id) return;
+  if (message.user?.id && message.user.id !== userId) return;
+  if (state.processedMessages.has(message.id)) return;
+  if (!Array.isArray(message.rolls) || message.rolls.length === 0) return;
+  console.log("Indy Dice Stats | createChatMessage", {
+    messageId: message?.id || message?._id,
+    userId,
+    isMidiQol: !!message?.flags?.["midi-qol"]
+  });
+  scheduleRollProcessing(message?.id || message?._id, () => {
     handleChatMessageRoll(message, userId);
-  }, delayMs);
+  });
 });
 
-function handleChatMessageRoll(message, userId) {
+function handleChatMessageRoll(message, userId) { 
   const recordSelfRolls = game.settings.get(MODULE_ID, "recordSelfRolls");
   const recordGmPrivateRolls = game.settings.get(MODULE_ID, "recordGmPrivateRolls");
   const recordGmBlindRolls = game.settings.get(MODULE_ID, "recordGmBlindRolls");
@@ -546,10 +607,13 @@ function handleChatMessageRoll(message, userId) {
 }
 
 Hooks.on("midi-qol.RollComplete", async (workflow) => {
-  const delayMs = Math.max(0, Number(game.settings.get(MODULE_ID, "rollProcessingDelayMs")) || 0);
-  setTimeout(() => {
+  console.log("Indy Dice Stats | midi-qol.RollComplete", {
+    messageId: workflow?.itemCardId || workflow?.chatMessageId || workflow?.messageId
+  });
+  const messageId = workflow?.itemCardId || workflow?.chatMessageId || workflow?.messageId;
+  scheduleRollProcessing(messageId, () => {
     handleMidiQolWorkflow(workflow);
-  }, delayMs);
+  });
 });
 
 async function handleMidiQolWorkflow(workflow) {
