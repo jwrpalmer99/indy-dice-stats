@@ -11,6 +11,22 @@ function refreshOpenDashboards(options = {}) {
   }
 }
 
+function refreshLatestRolls() {
+  const windows = Object.values(ui.windows ?? {});
+  for (const app of windows) {
+    if (app instanceof DiceStatsApp) {
+      const root = app._getRootElement?.();
+      if (root) app._renderLatestRoll(root);
+    }
+  }
+  for (const app of foundry.applications.instances?.values?.() ?? []) {
+    if (app instanceof DiceStatsApp) {
+      const root = app._getRootElement?.();
+      if (root) app._renderLatestRoll(root);
+    }
+  }
+}
+
 function watchThemeChanges() {
   if (state.themeObserver) return;
   if (typeof MutationObserver === "undefined") return;
@@ -26,4 +42,4 @@ function watchThemeChanges() {
   state.themeObserver.observe(body, { attributes: true, attributeFilter: ["class"] });
 }
 
-export { refreshOpenDashboards, watchThemeChanges };
+export { refreshLatestRolls, refreshOpenDashboards, watchThemeChanges };

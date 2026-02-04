@@ -16,9 +16,7 @@
       <label class="ids-control">
         <span title="Choose which player's stats to view.">Player</span>
         <select data-filter="user">
-          {{#if isGM}}
-            <option value="all" selected>All Players</option>
-          {{/if}}
+          <option value="all" {{#if (eq defaultUserId "all")}}selected{{/if}}>All Players</option>
           {{#each users}}
             <option value="{{id}}" {{#if (eq ../defaultUserId id)}}selected{{/if}}>{{name}}</option>
           {{/each}}

@@ -406,10 +406,12 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       const preferred = uiState?.userId ?? userSelect.value;
       const selected = preferred || (game.user?.isGM ? "all" : null);
       const options = [
-        ...(game.user?.isGM ? [{ value: "all", label: "All Players" }] : []),
+        { value: "all", label: "All Players" },
         ...visibleUsers.map((user) => ({ value: user.id, label: user.name }))
       ];
-      const fallback = game.user?.isGM ? "all" : options[0]?.value;
+      const fallback = game.user?.isGM
+        ? "all"
+        : (game.user?.id || options[0]?.value);
       const nextSelected = options.some((opt) => opt.value === selected) ? selected : fallback;
       this._replaceSelectOptions(userSelect, options, nextSelected);
     }
@@ -519,7 +521,8 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     }
 
     const onlyMonitorD20 = game.settings.get(MODULE_ID, "onlyMonitorD20");
-    const latestRoll = onlyMonitorD20 ? state.latestD20Roll : state.latestRoll;
+    const candidateRoll = onlyMonitorD20 ? state.latestD20Roll : state.latestRoll;
+    const latestRoll = this._isLatestRollVisible(candidateRoll) ? candidateRoll : null;
     if (!latestRoll) {
       liveView.hidden = true;
       defaultView.hidden = false;
@@ -661,6 +664,36 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     }
     wrapper.appendChild(results);
     return wrapper;
+  }
+
+  _isLatestRollVisible(latestRoll) {
+    if (!latestRoll) return false;
+    const visibility = latestRoll.visibility;
+    if (!visibility) return true;
+    const user = game.user;
+    const userId = user?.id;
+    const isGM = !!user?.isGM;
+    const allowPlayersSeeGmStats = game.settings.get(MODULE_ID, "allowPlayersSeeGmStats");
+    if (!allowPlayersSeeGmStats && !isGM) {
+      const gmSourceId = latestRoll.userId || visibility.authorId || visibility.userId;
+      if (gmSourceId && game.users?.get?.(gmSourceId)?.isGM) return false;
+    }
+    if (visibility.blind) return isGM;
+    const whisper = Array.isArray(visibility.whisper) ? visibility.whisper : [];
+    if (whisper.length) {
+      return !!userId && whisper.includes(userId);
+    }
+    const mode = String(visibility.rollMode || "").toLowerCase();
+    if (mode.includes("self")) {
+      return !!userId && (userId === visibility.authorId || userId === visibility.userId);
+    }
+    if (mode.includes("blind")) {
+      return isGM;
+    }
+    if (mode.includes("gm")) {
+      return isGM || (!!userId && (userId === visibility.authorId || userId === visibility.userId));
+    }
+    return true;
   }
 
   _renderTable(root, stats, actionFilter, detailFilter, streakSource = null) {

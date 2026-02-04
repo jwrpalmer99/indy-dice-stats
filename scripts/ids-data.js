@@ -123,6 +123,15 @@ export function normalizeLatestRoll(raw) {
     detailKey: raw.detailKey || null,
     advantage: raw.advantage === "disadvantage" ? "disadvantage"
       : (raw.advantage === "advantage" ? "advantage" : null),
+    visibility: raw.visibility && typeof raw.visibility === "object"
+      ? {
+          rollMode: raw.visibility.rollMode ? String(raw.visibility.rollMode) : null,
+          whisper: Array.isArray(raw.visibility.whisper) ? raw.visibility.whisper.filter(Boolean) : [],
+          blind: !!raw.visibility.blind,
+          authorId: raw.visibility.authorId || null,
+          userId: raw.visibility.userId || null
+        }
+      : null,
     rolls: Number.isFinite(rollCount) ? rollCount : 1,
     results: cloneLatestRollResults(raw.results),
     sequence: cloneLatestRollSequence(raw.sequence),
@@ -143,6 +152,7 @@ export function createLatestRollEntry(payload) {
     actionType: payload.actionType,
     detailKey: payload.detailKey || null,
     advantage: payload.advantage || null,
+    visibility: payload.visibility || null,
     rolls: payload.rolls,
     results: payload.results,
     sequence: payload.sequence,
@@ -457,6 +467,98 @@ function normalizeDetailCandidate(value) {
   return stripSaveCheckMarkers(stripAdvantageMarkers(value));
 }
 
+function extractVisibilityFromMessage(message, userId) {
+  if (!message || typeof message !== "object") return null;
+  const rawWhisper = message.whisper
+    ?? message.data?.whisper
+    ?? message.system?.whisper
+    ?? message.flags?.core?.whisper;
+  let whisper = [];
+  if (Array.isArray(rawWhisper)) {
+    whisper = rawWhisper.filter(Boolean);
+  } else if (rawWhisper instanceof Set) {
+    whisper = Array.from(rawWhisper).filter(Boolean);
+  } else if (rawWhisper?.contents && Array.isArray(rawWhisper.contents)) {
+    whisper = rawWhisper.contents.filter(Boolean);
+  }
+
+  let rollMode = null;
+  const rollList = Array.isArray(message.rolls)
+    ? message.rolls
+    : (Array.isArray(message.rolls?.contents) ? message.rolls.contents : []);
+  for (const roll of rollList) {
+    if (!roll) continue;
+    let options = roll?.options || {};
+    if ((!options || Object.keys(options).length === 0) && typeof roll === "string") {
+      try {
+        const parsed = JSON.parse(roll);
+        options = parsed?.options || options;
+      } catch (err) {
+        // ignore parse errors for non-JSON roll strings
+      }
+    }
+    if (options?.rollMode) {
+      rollMode = options.rollMode;
+      break;
+    }
+  }
+  rollMode = rollMode
+    || message.rollMode
+    || message.data?.rollMode
+    || message.system?.rollMode
+    || message.flags?.core?.rollMode
+    || message.flags?.dnd5e?.roll?.rollMode
+    || null;
+  const authorId = message.user?.id
+    || message.author?.id
+    || message.author
+    || message.userId
+    || message.data?.user
+    || message.data?.userId
+    || null;
+  return {
+    rollMode: rollMode ? String(rollMode) : null,
+    whisper,
+    blind: !!(message.blind ?? message.data?.blind ?? message.system?.blind),
+    authorId,
+    userId: userId || null
+  };
+}
+
+export function isSelfRollMessage(message, userId) {
+  const visibility = extractVisibilityFromMessage(message, userId);
+  if (!visibility) return false;
+  const mode = String(visibility.rollMode || "").toLowerCase();
+  if (mode.includes("self")) return true;
+  if (mode.includes("gm") || mode.includes("blind")) return false;
+  const whisper = Array.isArray(visibility.whisper) ? visibility.whisper : [];
+  if (whisper.length !== 1) return false;
+  const sole = whisper[0];
+  return !!sole && (sole === visibility.authorId || sole === visibility.userId);
+}
+
+export function isGmPrivateRollMessage(message, userId) {
+  const visibility = extractVisibilityFromMessage(message, userId);
+  if (!visibility) return false;
+  // const authorIsGm = visibility.authorId
+  //   ? !!game.users?.get?.(visibility.authorId)?.isGM
+  //   : false;
+  // if (!authorIsGm) return false;
+  const mode = String(visibility.rollMode || "").toLowerCase();
+  return mode.includes("gm") && !mode.includes("blind");
+}
+
+export function isBlindGmRollMessage(message, userId) {
+  const visibility = extractVisibilityFromMessage(message, userId);
+  if (!visibility) return false;
+  // const authorIsGm = visibility.authorId
+  //   ? !!game.users?.get?.(visibility.authorId)?.isGM
+  //   : false;
+  // if (!authorIsGm) return false;
+  const mode = String(visibility.rollMode || "").toLowerCase();
+  return mode.includes("blind");
+}
+
 function extractAdvantageFromText(value) {
   if (!value) return null;
   const text = String(value).toLowerCase();
@@ -550,8 +652,12 @@ export function extractActionType(message, roll, workflowMeta) {
 
 export function shouldTrackMessage(message, userId) {
   if (!message || !game.settings.get(MODULE_ID, "enabled")) return false;
+  if (!game.user?.isGM && message.user?.id && game.user?.id && message.user.id !== game.user.id) return false;
   if (message.user?.id && message.user.id !== userId) return false;
   if (state.processedMessages.has(message.id)) return false;
+  if (!game.settings.get(MODULE_ID, "recordSelfRolls") && isSelfRollMessage(message, userId)) return false;
+  if (!game.settings.get(MODULE_ID, "recordGmPrivateRolls") && isGmPrivateRollMessage(message, userId)) return false;
+  if (!game.settings.get(MODULE_ID, "recordGmBlindRolls") && isBlindGmRollMessage(message, userId)) return false;
   const flags = message.flags?.[MODULE_ID];
   if (flags?.tracked === false) return false;
   if (flags?.trackedViaSocket && game.user?.isGM) return false;
@@ -795,7 +901,14 @@ export function getAggregateStats() {
 
 export function getHiddenUserIds() {
   const list = game.settings.get(MODULE_ID, "hiddenPlayers") || [];
-  return new Set(list);
+  const hidden = new Set(list);
+  const allowPlayersSeeGmStats = game.settings.get(MODULE_ID, "allowPlayersSeeGmStats");
+  if (!allowPlayersSeeGmStats && !game.user?.isGM) {
+    for (const user of game.users?.contents ?? []) {
+      if (user?.isGM) hidden.add(user.id);
+    }
+  }
+  return hidden;
 }
 
 export function getVisibleSessionDates(globalStats, hiddenSet) {
@@ -928,7 +1041,9 @@ export function buildPayloadFromRolls(rolls, actionType, userId) {
     rolls: 0,
     results: {},
     sequence: {},
-    advantage: null
+    advantage: null,
+    visibility: null,
+    messageId: null
   };
   for (const roll of rolls) {
     const results = buildResultCountsFromRoll(roll);
@@ -1052,6 +1167,8 @@ export function getPf2eDetailFromContext(context, actionType) {
 export function buildPayloadsFromRolls(rolls, fallbackAction, userId, message, workflowMeta) {
   if (!Array.isArray(rolls) || !rolls.length) return [];
   const payloadsByKey = {};
+  const visibility = extractVisibilityFromMessage(message, userId);
+  const messageId = message?.id || message?._id || null;
   for (const roll of rolls) {
     if (!roll) continue;
     const actionType = resolveRollActionType(roll, fallbackAction);
@@ -1061,6 +1178,8 @@ export function buildPayloadsFromRolls(rolls, fallbackAction, userId, message, w
     const payload = payloadsByKey[payloadKey] ??= buildPayloadFromRolls([], actionType, userId);
     payload.detailKey = detailKey;
     payload.advantage = mergeAdvantageState(payload.advantage, advantage);
+    if (!payload.visibility && visibility) payload.visibility = visibility;
+    if (!payload.messageId && messageId) payload.messageId = messageId;
     const results = buildResultCountsFromRoll(roll);
     const sequences = buildResultSequencesFromRoll(roll);
     if (Object.keys(results).length === 0 && Object.keys(sequences).length === 0) continue;

@@ -4,10 +4,14 @@ import {
   buildPayloadsFromRolls,
   collectWorkflowRolls,
   createGlobalStats,
+  createLatestRollEntry,
   extractActionType,
   getGlobalStats,
   getRollsFromMessage,
   handleRollPayloadsLocally,
+  isBlindGmRollMessage,
+  isGmPrivateRollMessage,
+  isSelfRollMessage,
   markMessageProcessed,
   normalizeActionType,
   normalizeGlobalStats,
@@ -25,6 +29,7 @@ import {
   DiceStatsResetApp,
   DiceStatsVisibilityApp,
   DiceStatsFakerApp,
+  refreshLatestRolls,
   refreshOpenDashboards,
   watchThemeChanges
 } from "./ids-ui.js";
@@ -40,6 +45,43 @@ Hooks.once("init", () => {
     config: true,
     type: Boolean,
     default: true
+  });
+
+  game.settings.register(MODULE_ID, "recordSelfRolls", {
+    name: "Record Self Rolls",
+    hint: "Record self-only rolls (private) in the dice stats.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false
+  });
+
+  game.settings.register(MODULE_ID, "recordGmPrivateRolls", {
+    name: "Record Private GM Rolls",
+    hint: "Record GM private rolls (gmroll) in the dice stats.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false
+  });
+
+  game.settings.register(MODULE_ID, "recordGmBlindRolls", {
+    name: "Record Blind GM Rolls",
+    hint: "Record GM blind rolls (blindroll) in the dice stats.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false
+  });
+
+  game.settings.register(MODULE_ID, "allowPlayersSeeGmStats", {
+    name: "Allow Players to See GM Stats",
+    hint: "Allow non-GM users to include GM stats in player lists and All Players views.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    onChange: () => refreshOpenDashboards({ forceThemeRefresh: false })
   });
 
   game.settings.register(MODULE_ID, "showLatestRoll", {
@@ -234,14 +276,17 @@ Hooks.once("ready", async () => {
       if (message.senderId && message.senderId === game.user?.id) return;
       const latest = normalizeLatestRoll(message.data);
       if (!latest) return;
-      setLatestRoll(latest, { refresh: true });
+      setLatestRoll(latest);
+      refreshLatestRolls();
       return;
     }
     if (message.type !== "roll") return;
     if (!game.user?.isGM) return;
     const payload = message.data;
     if (!payload?.results || !payload?.actionType || !payload?.userId) return;
+    if (payload.messageId && state.processedMessages.has(payload.messageId)) return;
     handleRollPayloadsLocally([payload]);
+    if (payload.messageId) markMessageProcessed(payload.messageId);
   });
 });
 
@@ -400,6 +445,32 @@ Hooks.on("preCreateChatMessage", (message) => {
 });
 
 Hooks.on("createChatMessage", async (message, options, userId) => {
+  const recordSelfRolls = game.settings.get(MODULE_ID, "recordSelfRolls");
+  const recordGmPrivateRolls = game.settings.get(MODULE_ID, "recordGmPrivateRolls");
+  const recordGmBlindRolls = game.settings.get(MODULE_ID, "recordGmBlindRolls");
+  const isSelfRoll = isSelfRollMessage(message, userId);
+  const isGmPrivateRoll = isGmPrivateRollMessage(message, userId);
+  const isGmBlindRoll = isBlindGmRollMessage(message, userId);
+  const skipSelf = !recordSelfRolls && isSelfRoll;
+  const skipGmPrivate = !recordGmPrivateRolls && isGmPrivateRoll;
+  const skipGmBlind = !recordGmBlindRolls && isGmBlindRoll;
+  if (skipSelf || skipGmPrivate || skipGmBlind) {
+    if (game.user?.isGM && (message?.user?.id === game.user?.id  && isSelfRoll) || isGmPrivateRoll || isGmBlindRoll && !skipGmBlind) {
+      const rolls = getRollsFromMessage(message);
+      const actionType = extractActionType(message, rolls[0], state.workflowMeta.get(message.id));
+      const originUserId = resolveUserIdFromMessage(message, userId) || game.user?.id;
+      const payloads = buildPayloadsFromRolls(rolls, actionType, originUserId, message, state.workflowMeta.get(message.id));
+      if (payloads.length) {
+        const latestEntry = createLatestRollEntry(payloads[payloads.length - 1]);
+        if (latestEntry) {
+          setLatestRoll(latestEntry);
+          refreshLatestRolls();
+        }
+      }
+    }
+    markMessageProcessed(message.id);
+    return;
+  }
   if (!shouldTrackMessage(message, userId)) return;
   const rolls = getRollsFromMessage(message);
   const actionType = extractActionType(message, rolls[0], state.workflowMeta.get(message.id));
@@ -441,6 +512,49 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
   const actionType = normalizeActionType(
     workflow?.rollType || workflow?.workflowType || workflow?.item?.system?.actionType
   );
+  const recordSelfRolls = game.settings.get(MODULE_ID, "recordSelfRolls");
+  const recordGmPrivateRolls = game.settings.get(MODULE_ID, "recordGmPrivateRolls");
+  const recordGmBlindRolls = game.settings.get(MODULE_ID, "recordGmBlindRolls");
+  let isSelfRoll = false;
+  let isGmPrivateRoll = false;
+  let isGmBlindRoll = false;
+  if (messageId) {
+    const chatMessage = game.messages?.get?.(messageId);
+    isSelfRoll = isSelfRollMessage(chatMessage, workflowUserId || game.user?.id);
+    isGmPrivateRoll = isGmPrivateRollMessage(chatMessage, workflowUserId || game.user?.id);
+    isGmBlindRoll = isBlindGmRollMessage(chatMessage, workflowUserId || game.user?.id);
+  }
+  const mode = workflow?.rollOptions?.rollMode || workflow?.options?.rollMode || workflow?.rollMode;
+  const modeLower = typeof mode === "string" ? mode.toLowerCase() : "";
+  if (!isSelfRoll && modeLower.includes("self")) isSelfRoll = true;
+  if (!isGmPrivateRoll && modeLower.includes("gm")) isGmPrivateRoll = true;
+  if (!isGmBlindRoll && modeLower.includes("blind")) isGmBlindRoll = true;
+
+  const skipSelf = !recordSelfRolls && isSelfRoll;
+  const skipGmPrivate = !recordGmPrivateRolls && isGmPrivateRoll;
+  const skipGmBlind = !recordGmBlindRolls && isGmBlindRoll;
+  if (skipSelf || skipGmPrivate || skipGmBlind) {
+    if (game.user?.isGM && workflowUserId && workflowUserId === game.user?.id) {
+      const rolls = collectWorkflowRolls(workflow, {
+        debug: game.settings.get(MODULE_ID, "debugMidiQOL")
+      });
+      const payloads = buildPayloadsFromRolls(
+        rolls,
+        actionType,
+        workflowUserId || game.user?.id,
+        null,
+        workflow
+      );
+      if (payloads.length) {
+        const latestEntry = createLatestRollEntry(payloads[payloads.length - 1]);
+        if (latestEntry) {
+          setLatestRoll(latestEntry);
+          refreshLatestRolls();
+        }
+      }
+    }
+    return;
+  }
 
   if (messageId) {
     state.workflowMeta.set(messageId, { actionType });
