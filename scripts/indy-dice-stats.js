@@ -455,7 +455,7 @@ Hooks.on("createChatMessage", async (message, options, userId) => {
   const skipGmPrivate = !recordGmPrivateRolls && isGmPrivateRoll;
   const skipGmBlind = !recordGmBlindRolls && isGmBlindRoll;
   if (skipSelf || skipGmPrivate || skipGmBlind) {
-    if (game.user?.isGM && (message?.user?.id === game.user?.id  && isSelfRoll) || isGmPrivateRoll || isGmBlindRoll && !skipGmBlind) {
+    if (game.user?.isGM && (message?.user?.id === game.user?.id  && isSelfRoll) || isGmPrivateRoll || isGmBlindRoll) {
       const rolls = getRollsFromMessage(message);
       const actionType = extractActionType(message, rolls[0], state.workflowMeta.get(message.id));
       const originUserId = resolveUserIdFromMessage(message, userId) || game.user?.id;
@@ -534,7 +534,7 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
   const skipGmPrivate = !recordGmPrivateRolls && isGmPrivateRoll;
   const skipGmBlind = !recordGmBlindRolls && isGmBlindRoll;
   if (skipSelf || skipGmPrivate || skipGmBlind) {
-    if (game.user?.isGM && workflowUserId && workflowUserId === game.user?.id) {
+   if (game.user?.isGM && (message?.user?.id === game.user?.id  && isSelfRoll) || isGmPrivateRoll || isGmBlindRoll) {
       const rolls = collectWorkflowRolls(workflow, {
         debug: game.settings.get(MODULE_ID, "debugMidiQOL")
       });

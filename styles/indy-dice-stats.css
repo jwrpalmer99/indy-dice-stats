@@ -88,6 +88,13 @@
   margin: 0;
 }
 
+.indy-dice-stats .ids-live-roll-privacy {
+  margin-left: 6px;
+  font-size: 0.82em;
+  letter-spacing: 0.12em;
+  opacity: 0.85;
+}
+
 .indy-dice-stats .ids-subtitle {
   margin: 0;
   color: var(--ids-muted);
@@ -876,4 +883,3 @@ body.theme-dark .indy-dice-stats-reset select {
     grid-template-columns: 1fr;
   }
 }
-

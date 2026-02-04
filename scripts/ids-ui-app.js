@@ -539,6 +539,12 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       userEl.textContent = userName;
     }
 
+    const privacyEl = liveView.querySelector("[data-live-roll-privacy]");
+    if (privacyEl) {
+      const privacyLabel = this._getLatestRollPrivacyLabel(latestRoll);
+      privacyEl.textContent = privacyLabel ? `(${privacyLabel})` : "";
+    }
+
     const detailEl = liveView.querySelector("[data-live-roll-details]");
     if (!detailEl) return;
     detailEl.replaceChildren();
@@ -664,6 +670,17 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     }
     wrapper.appendChild(results);
     return wrapper;
+  }
+
+  _getLatestRollPrivacyLabel(latestRoll) {
+    if (!latestRoll) return "";
+    const visibility = latestRoll.visibility;
+    if (!visibility) return "";
+    const mode = String(visibility.rollMode || "").toLowerCase();
+    if (mode.includes("blind")) return "Blind";
+    if (mode.includes("gm")) return "Private";
+    if (mode.includes("self")) return "Self";
+    return "";
   }
 
   _isLatestRollVisible(latestRoll) {
