@@ -93,6 +93,36 @@ Hooks.once("init", () => {
     onChange: () => refreshOpenDashboards({ forceThemeRefresh: true })
   });
 
+  game.settings.register(MODULE_ID, "fontBodyScale", {
+    name: "Body Font Scale",
+    hint: "Multiplier applied to body font sizes (e.g. 1.1 = 10% larger).",
+    scope: "client",
+    config: true,
+    type: Number,
+    range: {
+      min: 0.8,
+      max: 1.6,
+      step: 0.05
+    },
+    default: 1,
+    onChange: () => refreshOpenDashboards({ forceThemeRefresh: true })
+  });
+
+  game.settings.register(MODULE_ID, "fontTitleScale", {
+    name: "Title Font Scale",
+    hint: "Multiplier applied to title/number font sizes.",
+    scope: "client",
+    config: true,
+    type: Number,
+    range: {
+      min: 0.8,
+      max: 1.6,
+      step: 0.05
+    },
+    default: 1,
+    onChange: () => refreshOpenDashboards({ forceThemeRefresh: true })
+  });
+
   game.settings.registerMenu(MODULE_ID, "viewer", {
     name: "Indy Dice Stats",
     label: "Open Dice Dashboard",
@@ -162,13 +192,15 @@ Hooks.once("ready", async () => {
   });
 });
 
-function applyFontPreview(fontBody, fontTitle) {
+function applyFontPreview(fontBody, fontTitle, bodyScale, titleScale) {
   const roots = document.querySelectorAll(
     ".indy-dice-stats, .indy-dice-stats-reset, .indy-dice-stats-visibility, .indy-dice-stats-faker"
   );
   for (const root of roots) {
     if (fontBody) root.style.setProperty("--ids-font-body", fontBody);
     if (fontTitle) root.style.setProperty("--ids-font-title", fontTitle);
+    if (bodyScale !== undefined) root.style.setProperty("--ids-font-body-scale", String(bodyScale));
+    if (titleScale !== undefined) root.style.setProperty("--ids-font-title-scale", String(titleScale));
   }
 }
 
@@ -204,18 +236,35 @@ function bindFontPreview(app, html) {
   const updatePreview = () => {
     const bodyValue = getValue("fontBody");
     const titleValue = getValue("fontTitle");
-    applyFontPreview(bodyValue, titleValue);
+    const bodyScale = Number(getValue("fontBodyScale"));
+    const titleScale = Number(getValue("fontTitleScale"));
+    applyFontPreview(bodyValue, titleValue, bodyScale, titleScale);
   };
   const handlePreviewEvent = (event) => {
     const target = event.target;
     if (!target) return;
     const name = target.getAttribute?.("name") || "";
-    if (name === `${MODULE_ID}.fontBody` || name === `${MODULE_ID}.fontTitle`) updatePreview();
+    if (
+      name === `${MODULE_ID}.fontBody`
+      || name === `${MODULE_ID}.fontTitle`
+      || name === `${MODULE_ID}.fontBodyScale`
+      || name === `${MODULE_ID}.fontTitleScale`
+    ) {
+      updatePreview();
+    }
   };
 
   if (typeof html?.on === "function") {
-    html.on("change", `select[name="${MODULE_ID}.fontBody"], select[name="${MODULE_ID}.fontTitle"]`, updatePreview);
-    html.on("input", `select[name="${MODULE_ID}.fontBody"], select[name="${MODULE_ID}.fontTitle"]`, updatePreview);
+    html.on(
+      "change",
+      `select[name="${MODULE_ID}.fontBody"], select[name="${MODULE_ID}.fontTitle"], input[name="${MODULE_ID}.fontBodyScale"], input[name="${MODULE_ID}.fontTitleScale"]`,
+      updatePreview
+    );
+    html.on(
+      "input",
+      `select[name="${MODULE_ID}.fontBody"], select[name="${MODULE_ID}.fontTitle"], input[name="${MODULE_ID}.fontBodyScale"], input[name="${MODULE_ID}.fontTitleScale"]`,
+      updatePreview
+    );
   }
   form.addEventListener("change", handlePreviewEvent, true);
   form.addEventListener("input", handlePreviewEvent, true);
@@ -225,7 +274,12 @@ function bindFontPreview(app, html) {
       if (mutation.type !== "attributes") continue;
       const target = mutation.target;
       const name = target?.getAttribute?.("name") || "";
-      if (name === `${MODULE_ID}.fontBody` || name === `${MODULE_ID}.fontTitle`) {
+      if (
+        name === `${MODULE_ID}.fontBody`
+        || name === `${MODULE_ID}.fontTitle`
+        || name === `${MODULE_ID}.fontBodyScale`
+        || name === `${MODULE_ID}.fontTitleScale`
+      ) {
         updatePreview();
         return;
       }
@@ -255,7 +309,9 @@ Hooks.on("closeSettingsConfig", () => {
   refreshOpenDashboards({ forceThemeRefresh: true });
   applyFontPreview(
     game.settings.get(MODULE_ID, "fontBody"),
-    game.settings.get(MODULE_ID, "fontTitle")
+    game.settings.get(MODULE_ID, "fontTitle"),
+    game.settings.get(MODULE_ID, "fontBodyScale"),
+    game.settings.get(MODULE_ID, "fontTitleScale")
   );
 });
 

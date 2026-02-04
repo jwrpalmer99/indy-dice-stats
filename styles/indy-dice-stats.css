@@ -3,6 +3,10 @@
 .indy-dice-stats {
   --ids-font-body: "Manrope", "Segoe UI", sans-serif;
   --ids-font-title: "Fraunces", "Georgia", serif;
+  --ids-font-body-scale: 1;
+  --ids-font-title-scale: 1;
+  --ids-font-body: "Manrope", "Segoe UI", sans-serif;
+  --ids-font-title: "Fraunces", "Georgia", serif;
   --ids-ink: #1f2937;
   --ids-muted: #475569;
   --ids-accent: #0f766e;
@@ -68,7 +72,7 @@
 
 .indy-dice-stats .ids-title h1 {
   font-family: var(--ids-font-title, "Fraunces", "Georgia", serif);
-  font-size: 26px;
+  font-size: calc(26px * var(--ids-font-title-scale, 1));
   line-height: 1.1;
   margin: 4px 0 6px;
   color: #0f172a;
@@ -77,7 +81,7 @@
 .indy-dice-stats .ids-eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.18em;
-  font-size: 10px;
+  font-size: calc(10px * var(--ids-font-body-scale, 1));
   color: var(--ids-muted);
   margin: 0;
 }
@@ -85,7 +89,7 @@
 .indy-dice-stats .ids-subtitle {
   margin: 0;
   color: var(--ids-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--ids-font-body-scale, 1));
 }
 
 .indy-dice-stats .ids-controls {
@@ -103,7 +107,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 12px;
+  font-size: calc(12px * var(--ids-font-body-scale, 1));
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--ids-muted);
@@ -112,7 +116,7 @@
 }
 
 .indy-dice-stats .ids-hint {
-  font-size: 11px;
+  font-size: calc(11px * var(--ids-font-body-scale, 1));
   text-transform: none;
   letter-spacing: normal;
   color: rgba(71, 85, 105, 0.7);
@@ -160,7 +164,7 @@
   border: 1px solid rgba(15, 118, 110, 0.35);
   background: #ffffff;
   padding: 10px 6px 10px 12px;
-  font-size: 12px;
+  font-size: calc(12px * var(--ids-font-body-scale, 1));
   color: var(--ids-ink);
   min-width: 0;
   line-height: 1.4;
@@ -212,7 +216,7 @@
 }
 
 .indy-dice-stats .ids-stat-label {
-  font-size: 12px;
+  font-size: calc(12px * var(--ids-font-body-scale, 1));
   text-transform: uppercase;
   letter-spacing: 0.18em;
   color: var(--ids-muted);
@@ -221,7 +225,7 @@
 
 .indy-dice-stats .ids-stat-value {
   font-family: var(--ids-font-title, "Fraunces", "Georgia", serif);
-  font-size: 28px;
+  font-size: calc(28px * var(--ids-font-title-scale, 1));
   margin: 0 0 6px;
   position: relative;
   z-index: 1;
@@ -229,7 +233,7 @@
 
 .indy-dice-stats .ids-stat-foot {
   margin: 0;
-  font-size: 12px;
+  font-size: calc(12px * var(--ids-font-body-scale, 1));
   color: var(--ids-muted);
   position: relative;
   z-index: 1;
@@ -257,7 +261,7 @@
   column-gap: 12px;
   margin-bottom: 8px;
   width: 100%;
-  font-size: 12px;
+  font-size: calc(12px * var(--ids-font-body-scale, 1));
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--ids-muted);
@@ -284,7 +288,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: calc(11px * var(--ids-font-body-scale, 1));
   letter-spacing: 0.12em;
   cursor: pointer;
   color: var(--ids-muted);
@@ -377,7 +381,7 @@
   width: max-content;
   min-width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: calc(11px * var(--ids-font-body-scale, 1));
   color: var(--ids-ink);
   table-layout: fixed;
 }
@@ -393,7 +397,7 @@
 .indy-dice-stats .ids-heatmap th {
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 10px;
+  font-size: calc(10px * var(--ids-font-body-scale, 1));
   color: var(--ids-muted);
   position: sticky;
   top: 0;
@@ -405,7 +409,7 @@
   text-align: left;
   font-weight: 600;
   padding-right: 6px;
-  font-size: var(--ids-heatmap-label-font);
+  font-size: calc(var(--ids-heatmap-label-font) * var(--ids-font-body-scale, 1));
   max-width: var(--ids-heatmap-label-width);
   width: var(--ids-heatmap-label-width);
   overflow: hidden;
@@ -449,7 +453,7 @@
   justify-content: center;
   height: 100%;
   color: var(--ids-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--ids-font-body-scale, 1));
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
@@ -464,14 +468,14 @@
 
 .indy-dice-stats .ids-card-header h2 {
   font-family: var(--ids-font-title, "Fraunces", "Georgia", serif);
-  font-size: 20px;
+  font-size: calc(20px * var(--ids-font-title-scale, 1));
   margin: 0;
   color: #0f172a;
 }
 
 .indy-dice-stats .ids-card-header p {
   margin: 0;
-  font-size: 13px;
+  font-size: calc(13px * var(--ids-font-body-scale, 1));
   color: var(--ids-muted);
 }
 
@@ -571,7 +575,7 @@ body.theme-dark .indy-dice-stats td {
 .indy-dice-stats-reset .ids-reset__header h2 {
   margin: 0 0 6px;
   font-family: var(--ids-font-title, "Fraunces", "Georgia", serif);
-  font-size: 22px;
+  font-size: calc(22px * var(--ids-font-title-scale, 1));
 }
 
 .indy-dice-stats-reset .ids-reset__header p {
@@ -586,7 +590,7 @@ body.theme-dark .indy-dice-stats td {
 
 .indy-dice-stats-reset .ids-reset__note {
   margin: -4px 0 0;
-  font-size: 12px;
+  font-size: calc(12px * var(--ids-font-body-scale, 1));
   color: var(--ids-muted);
 }
 
@@ -604,7 +608,7 @@ body.theme-dark .indy-dice-stats td {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 12px;
+  font-size: calc(12px * var(--ids-font-body-scale, 1));
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--ids-muted);
@@ -680,7 +684,7 @@ body.theme-dark .indy-dice-stats-reset select {
 .indy-dice-stats th {
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  font-size: 11px;
+  font-size: calc(11px * var(--ids-font-body-scale, 1));
   color: var(--ids-muted);
 }
 
@@ -704,3 +708,4 @@ body.theme-dark .indy-dice-stats-reset select {
     grid-template-columns: 1fr;
   }
 }
+
