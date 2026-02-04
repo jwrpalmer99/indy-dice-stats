@@ -26,6 +26,7 @@ import {
 } from "./ids-data.js";
 import {
   DiceStatsApp,
+  DiceStatsMonitorApp,
   DiceStatsResetApp,
   DiceStatsVisibilityApp,
   DiceStatsFakerApp,
@@ -139,6 +140,14 @@ Hooks.once("init", () => {
     config: false,
     type: Object,
     default: {}
+  });
+
+  game.settings.register(MODULE_ID, "monitorPosition", {
+    name: "Indy Dice Stats Monitor Position",
+    scope: "client",
+    config: false,
+    type: Object,
+    default: { left: 120, top: 120 }
   });
 
   const defaultBody = "\"Manrope\", \"Segoe UI\", sans-serif";
@@ -584,15 +593,72 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
 
 Hooks.on("getSceneControlButtons", (controls) => {
   if (!controls) return;
-  const tokenControls = controls.tokens ?? controls.token ?? controls.drawings;
+  const tokenControls = Array.isArray(controls)
+    ? controls.find((control) => control?.name === "token")
+    : controls.tokens ?? controls.token ?? controls.drawings;
   if (!tokenControls) return;
-  tokenControls.tools ??= {};
-  tokenControls.tools.indyDiceStats = {
+  const addTool = (tool) => {
+    if (Array.isArray(tokenControls.tools)) {
+      const existingIndex = tokenControls.tools.findIndex((entry) => entry?.name === tool.name);
+      if (existingIndex >= 0) {
+        tokenControls.tools[existingIndex] = { ...tokenControls.tools[existingIndex], ...tool };
+      } else {
+        tokenControls.tools.push(tool);
+      }
+      return;
+    }
+    tokenControls.tools ??= {};
+    tokenControls.tools[tool.name] = tool;
+  };
+  const findMonitorApp = () => {
+    for (const app of foundry.applications.instances?.values?.() ?? []) {
+      if (app instanceof DiceStatsMonitorApp) return app;
+    }
+    for (const app of Object.values(ui.windows ?? {})) {
+      if (app instanceof DiceStatsMonitorApp) return app;
+    }
+    return null;
+  };
+  const monitorApp = findMonitorApp();
+  const monitorOpen = !!(monitorApp && (monitorApp.rendered || monitorApp._state > 0));
+  addTool({
     name: "indyDiceStats",
     title: "Indy Dice Stats",
     icon: "fas fa-chart-column",
     button: true,
     visible: true,
+    onClick: () => new DiceStatsApp().render(true),
     onChange: () => new DiceStatsApp().render(true)
-  };
+  });
+  addTool({
+    name: "indyDiceStatsMonitor",
+    title: "Indy Dice Stats Monitor",
+    icon: "fa-regular fa-telescope",
+    button: true,
+    visible: true,
+    toggle: true,
+    active: monitorOpen,
+    onClick: () => {
+      const existing = findMonitorApp();
+      if (existing && (existing.rendered || existing._state > 0)) {
+        existing.close();
+      } else {
+        const app = new DiceStatsMonitorApp();
+        app.render(true);
+        app.bringToTop?.();
+      }
+      ui.controls?.render();
+    },
+    onChange: () => {
+      const existing = findMonitorApp();
+      if (existing && (existing.rendered || existing._state > 0)) {
+        existing.close();
+      } else {
+        const app = new DiceStatsMonitorApp();
+        app.render(true);
+        app.bringToTop?.();
+      }
+      ui.controls?.render();
+    }
+  });
 });

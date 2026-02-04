@@ -949,7 +949,378 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
 }
 
 
-export { DiceStatsApp };
+class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplicationMixin(
+  foundry.applications.api.ApplicationV2
+) {
+  static DEFAULT_OPTIONS = {
+    id: "indy-dice-stats-monitor",
+    classes: ["indy-dice-stats", "indy-dice-stats-monitor"],
+    window: {
+      title: "Indy Dice Stats Monitor",
+      icon: "fa-regular fa-telescope",
+      resizable: false,
+      frame: true
+    },
+    border: "none",
+    position: {
+      width: 200,
+      height: 166,
+      left: 120,
+      top: 120
+    }
+  };
 
+  static PARTS = {
+    root: {
+      template: `modules/${MODULE_ID}/templates/indy-dice-stats-monitor.hbs`,
+      root: true
+    }
+  };
 
+  async _onRender(context, options) {
+    await super._onRender(context, options);
+    const scope = this.window?.content ?? this.element ?? document.getElementById(this.id);
+    applyFontSettings(scope);
+    const stored = this._getStoredPosition();
+    if (stored) this.setPosition(stored);
+    this._bindOpenDashboard(scope);
+    this._enableDrag(scope);
+    this._renderLatestRoll(scope);
+  }
+
+  async _onClose(options) {
+    await super._onClose(options);
+    this._storePosition();
+    ui.controls?.render();
+  }
+
+  _getStoredPosition() {
+    const stored = game.settings.get(MODULE_ID, "monitorPosition") || {};
+    const left = Number.isFinite(stored.left) ? stored.left : this.position?.left;
+    const top = Number.isFinite(stored.top) ? stored.top : this.position?.top;
+    if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
+    return { left, top };
+  }
+
+  _storePosition() {
+    const left = this.position?.left ?? this.element?.offsetLeft;
+    const top = this.position?.top ?? this.element?.offsetTop;
+    if (!Number.isFinite(left) || !Number.isFinite(top)) return;
+    void game.settings.set(MODULE_ID, "monitorPosition", { left, top });
+  }
+
+  _enableDrag(scope) {
+    const root = scope?.querySelector?.(".ids-monitor-root") ?? scope;
+    if (!root || root.dataset.idsDragReady) return;
+    root.dataset.idsDragReady = "true";
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    const isInteractive = (target) => target?.closest?.("button, a, input, select, textarea, [data-no-drag]");
+
+    const onPointerDown = (event) => {
+      if (event.button !== 0) return;
+      if (isInteractive(event.target)) return;
+      dragging = true;
+      startX = event.clientX;
+      startY = event.clientY;
+      startLeft = this.position?.left ?? this.element?.offsetLeft ?? 0;
+      startTop = this.position?.top ?? this.element?.offsetTop ?? 0;
+      root.setPointerCapture?.(event.pointerId);
+    };
+
+    const onPointerMove = (event) => {
+      if (!dragging) return;
+      const nextLeft = startLeft + (event.clientX - startX);
+      const nextTop = startTop + (event.clientY - startY);
+      this.setPosition({ left: nextLeft, top: nextTop });
+    };
+
+    const onPointerUp = (event) => {
+      if (!dragging) return;
+      dragging = false;
+      root.releasePointerCapture?.(event.pointerId);
+      this._storePosition();
+    };
+
+    root.addEventListener("pointerdown", onPointerDown);
+    root.addEventListener("pointermove", onPointerMove);
+    root.addEventListener("pointerup", onPointerUp);
+    root.addEventListener("pointercancel", onPointerUp);
+  }
+
+  _bindOpenDashboard(scope) {
+    const root = scope?.querySelector?.(".ids-monitor-root") ?? scope;
+    if (!root || root.dataset.idsDblReady) return;
+    root.dataset.idsDblReady = "true";
+    const isInteractive = (target) => target?.closest?.("button, a, input, select, textarea, [data-no-drag]");
+    root.addEventListener("dblclick", (event) => {
+      if (isInteractive(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      new DiceStatsApp().render(true);
+    });
+  }
+
+  _getRootElement() {
+    const content = this.window?.content ?? this.element;
+    if (content) {
+      return content.querySelector(".ids-monitor-root") ?? content;
+    }
+    return document.querySelector(`#${this.id} .ids-monitor-root`)
+      ?? document.querySelector(`#${this.id}`);
+  }
+
+  _renderLatestRoll(root) {
+    const container = root?.querySelector?.("[data-live-roll]");
+    if (!container) return;
+    const defaultView = container.querySelector("[data-live-roll-default]");
+    const liveView = container.querySelector("[data-live-roll-live]");
+    if (!defaultView || !liveView) return;
+
+    if (!game.settings.get(MODULE_ID, "showLatestRoll")) {
+      liveView.hidden = true;
+      defaultView.hidden = false;
+      return;
+    }
+
+    const onlyMonitorD20 = game.settings.get(MODULE_ID, "onlyMonitorD20");
+    const candidateRoll = onlyMonitorD20 ? state.latestD20Roll : state.latestRoll;
+    const latestRoll = this._isLatestRollVisible(candidateRoll) ? candidateRoll : null;
+    if (!latestRoll) {
+      liveView.hidden = true;
+      defaultView.hidden = false;
+      return;
+    }
+    liveView.hidden = false;
+    defaultView.hidden = true;
+    const glowKey = this._getLatestRollGlowKey(latestRoll);
+    this._triggerLatestRollGlow(container, liveView, glowKey);
+
+    const userEl = liveView.querySelector("[data-live-roll-user]");
+    if (userEl) {
+      const userName = latestRoll.userName
+        || (latestRoll.userId ? game.users.get(latestRoll.userId)?.name : null)
+        || "Unknown";
+      userEl.textContent = userName;
+    }
+
+    const privacyEl = liveView.querySelector("[data-live-roll-privacy]");
+    if (privacyEl) {
+      const privacyLabel = this._getLatestRollPrivacyLabel(latestRoll);
+      privacyEl.textContent = privacyLabel ? `(${privacyLabel})` : "";
+    }
+
+    const detailEl = liveView.querySelector("[data-live-roll-details]");
+    if (!detailEl) return;
+    detailEl.replaceChildren();
+
+    const fragment = document.createDocumentFragment();
+    const actionLabel = this._formatLatestRollAction(latestRoll);
+    if (actionLabel) {
+      const actionSpan = document.createElement("span");
+      actionSpan.className = "ids-roll-action";
+      actionSpan.textContent = actionLabel;
+      fragment.appendChild(actionSpan);
+    }
+    if (latestRoll.advantage) {
+      const advSpan = document.createElement("span");
+      const isDis = latestRoll.advantage === "disadvantage";
+      advSpan.className = `ids-roll-advantage ${isDis ? "ids-roll-advantage--dis" : "ids-roll-advantage--adv"}`;
+      advSpan.textContent = isDis ? "Disadvantage" : "Advantage";
+      fragment.appendChild(advSpan);
+    }
+
+    const diceEntries = this._getLatestRollDiceEntries(latestRoll);
+    if (diceEntries.length === 0) {
+      const emptySpan = document.createElement("span");
+      emptySpan.className = "ids-roll-empty";
+      emptySpan.textContent = "No dice results";
+      fragment.appendChild(emptySpan);
+    } else {
+      for (const entry of diceEntries) {
+        fragment.appendChild(this._buildLatestRollDieNode(entry.dieKey, entry.values, latestRoll.advantage));
+      }
+    }
+
+    detailEl.appendChild(fragment);
+  }
+
+  _formatLatestRollAction(latestRoll) {
+    if (!latestRoll) return "";
+    const actionType = latestRoll.actionType || "other";
+    const baseLabel = ACTION_LABELS[actionType] || toPascalCase(actionType);
+    const trimmedBase = baseLabel.replace(/\s*Rolls$/i, "");
+    const detailKey = latestRoll.detailKey;
+    if (detailKey && ["save", "skill", "check", "ability"].includes(actionType)) {
+      let detailLabel = formatDetailLabel(detailKey);
+      const lower = detailLabel.toLowerCase();
+      if (!/(save|skill|check)/.test(lower)) {
+        const suffix = actionType === "save" ? "Save" : actionType === "skill" ? "Skill" : "Check";
+        detailLabel = `${detailLabel} ${suffix}`;
+      }
+      return detailLabel;
+    }
+    return trimmedBase || "Roll";
+  }
+
+  _getLatestRollDiceEntries(latestRoll) {
+    const entries = [];
+    if (!latestRoll) return entries;
+    const sequence = latestRoll.sequence || {};
+    const results = latestRoll.results || {};
+    let hasSequence = false;
+    for (const list of Object.values(sequence)) {
+      if (Array.isArray(list) && list.length) {
+        hasSequence = true;
+        break;
+      }
+    }
+    if (hasSequence) {
+      for (const [dieKey, list] of Object.entries(sequence)) {
+        if (!Array.isArray(list) || list.length === 0) continue;
+        const values = list.map((value) => Number(value)).filter((value) => Number.isFinite(value));
+        if (values.length) entries.push({ dieKey, values });
+      }
+    } else {
+      for (const [dieKey, faces] of Object.entries(results)) {
+        if (!faces || typeof faces !== "object") continue;
+        const values = [];
+        const ordered = Object.entries(faces)
+          .map(([face, count]) => ({ face: Number(face), count: Number(count) || 0 }))
+          .filter((entry) => Number.isFinite(entry.face) && entry.count > 0)
+          .sort((a, b) => a.face - b.face);
+        for (const entry of ordered) {
+          for (let i = 0; i < entry.count; i += 1) {
+            values.push(entry.face);
+          }
+        }
+        if (values.length) entries.push({ dieKey, values });
+      }
+    }
+    entries.sort((a, b) => sortDiceKeys(a.dieKey, b.dieKey));
+    return entries;
+  }
+
+  _buildLatestRollDieNode(dieKey, values, advantage) {
+    const wrapper = document.createElement("span");
+    wrapper.className = "ids-roll-die";
+    const label = document.createElement("span");
+    label.className = "ids-roll-die-label";
+    label.textContent = String(dieKey || "").toUpperCase();
+    wrapper.appendChild(label);
+
+    const results = document.createElement("span");
+    results.className = "ids-roll-results";
+    const isD20 = String(dieKey).toLowerCase() === "d20";
+    let finalValue = null;
+    if (isD20 && Array.isArray(values) && values.length) {
+      if (advantage === "advantage") {
+        finalValue = Math.max(...values);
+        wrapper.classList.add("ids-roll-die--adv");
+      } else if (advantage === "disadvantage") {
+        finalValue = Math.min(...values);
+      } else {
+        finalValue = values[values.length - 1];
+      }
+      if (finalValue === 20) wrapper.classList.add("ids-roll-die--crit");
+      if (finalValue === 1) wrapper.classList.add("ids-roll-die--fail");
+    }
+    for (const value of values) {
+      const resultEl = document.createElement("span");
+      resultEl.className = "ids-roll-result";
+      if (isD20 && value === 20) resultEl.classList.add("ids-roll-result--crit");
+      if (isD20 && value === 1) resultEl.classList.add("ids-roll-result--fail");
+      resultEl.textContent = String(value);
+      results.appendChild(resultEl);
+    }
+    wrapper.appendChild(results);
+    return wrapper;
+  }
+
+  _getLatestRollPrivacyLabel(latestRoll) {
+    if (!latestRoll) return "";
+    const visibility = latestRoll.visibility;
+    if (!visibility) return "";
+    const mode = String(visibility.rollMode || "").toLowerCase();
+    if (mode.includes("blind")) return "Blind";
+    if (mode.includes("gm")) return "Private";
+    if (mode.includes("self")) return "Self";
+    return "";
+  }
+
+  _getLatestRollGlowKey(latestRoll) {
+    if (!latestRoll) return "default";
+    const diceEntries = this._getLatestRollDiceEntries(latestRoll);
+    const d20Entry = diceEntries.find((entry) => String(entry.dieKey).toLowerCase() === "d20");
+    const values = d20Entry?.values;
+    if (!Array.isArray(values) || values.length === 0) {
+      if (latestRoll.advantage === "disadvantage") return "dis";
+      if (latestRoll.advantage === "advantage") return "adv";
+      return "default";
+    }
+    let finalValue = values[values.length - 1];
+    if (latestRoll.advantage === "advantage") {
+      finalValue = Math.max(...values);
+    } else if (latestRoll.advantage === "disadvantage") {
+      finalValue = Math.min(...values);
+    }
+    if (finalValue === 20) return "crit";
+    if (finalValue === 1) return "fail";
+    if (latestRoll.advantage === "advantage") return "adv";
+    if (latestRoll.advantage === "disadvantage") return "dis";
+    return "default";
+  }
+
+  _triggerLatestRollGlow(container, liveView, glowKey = "default") {
+    const target = liveView || container;
+    if (!target) return;
+    if (container) container.dataset.glow = glowKey || "default";
+    target.classList.remove("ids-title__live--pulse");
+    void target.offsetWidth;
+    target.classList.add("ids-title__live--pulse");
+    if (this._latestRollGlowTimer) {
+      clearTimeout(this._latestRollGlowTimer);
+    }
+    this._latestRollGlowTimer = setTimeout(() => {
+      target.classList.remove("ids-title__live--pulse");
+      this._latestRollGlowTimer = null;
+    }, 1800);
+  }
+
+  _isLatestRollVisible(latestRoll) {
+    if (!latestRoll) return false;
+    const visibility = latestRoll.visibility;
+    if (!visibility) return true;
+    const user = game.user;
+    const userId = user?.id;
+    const isGM = !!user?.isGM;
+    const allowPlayersSeeGmStats = game.settings.get(MODULE_ID, "allowPlayersSeeGmStats");
+    if (!allowPlayersSeeGmStats && !isGM) {
+      const gmSourceId = latestRoll.userId || visibility.authorId || visibility.userId;
+      if (gmSourceId && game.users?.get?.(gmSourceId)?.isGM) return false;
+    }
+    if (visibility.blind) return isGM;
+    const whisper = Array.isArray(visibility.whisper) ? visibility.whisper : [];
+    if (whisper.length) {
+      return !!userId && whisper.includes(userId);
+    }
+    const mode = String(visibility.rollMode || "").toLowerCase();
+    if (mode.includes("self")) {
+      return !!userId && (userId === visibility.authorId || userId === visibility.userId);
+    }
+    if (mode.includes("blind")) {
+      return isGM;
+    }
+    if (mode.includes("gm")) {
+      return isGM || (!!userId && (userId === visibility.authorId || userId === visibility.userId));
+    }
+    return true;
+  }
+}
+
+export { DiceStatsApp, DiceStatsMonitorApp };
 

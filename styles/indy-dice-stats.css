@@ -38,6 +38,52 @@
   --ids-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
 }
 
+.indy-dice-stats-monitor {
+  --ids-roll-chip-glow-default-rgb: 15, 118, 110;
+  --ids-roll-chip-glow-crit-rgb: 0, 230, 100;
+  --ids-roll-chip-glow-fail-rgb: 225, 29, 72;
+  --ids-roll-chip-glow-adv-rgb: 0, 200, 83;
+  --ids-roll-chip-glow-dis-rgb: 225, 29, 72;
+  --ids-roll-chip-glow-rgb: var(--ids-roll-chip-glow-default-rgb);
+  border-radius: 14px;
+}
+
+.indy-dice-stats-monitor .window-content {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: var(--ids-shadow);
+}
+
+.indy-dice-stats-monitor.window-app {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.indy-dice-stats-monitor .window-header {
+  display: none;
+}
+
+.indy-dice-stats-monitor .window-header + .window-content {
+  margin-top: 0;
+}
+
+.indy-dice-stats-monitor .ids-monitor-root {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 36px 40px 40px;
+  width: 100%;
+  box-sizing: border-box;
+  background-image: radial-gradient(circle at top left, rgba(15, 118, 110, 0.12), transparent 45%),
+    radial-gradient(circle at 80% 20%, rgba(249, 115, 22, 0.18), transparent 35%);
+}
+
+.indy-dice-stats-monitor .ids-title {
+  max-width: none;
+  margin: 0;
+}
+
 .indy-dice-stats .window-content {
   padding: 0;
   background: linear-gradient(135deg, #f9f3e6 0%, #e5f4f3 55%, #f8eadf 100%);

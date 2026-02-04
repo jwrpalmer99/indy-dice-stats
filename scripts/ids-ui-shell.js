@@ -1,5 +1,5 @@
 import { state } from "./ids-state.js";
-import { DiceStatsApp } from "./ids-ui-app.js";
+import { DiceStatsApp, DiceStatsMonitorApp } from "./ids-ui-app.js";
 
 function refreshOpenDashboards(options = {}) {
   const windows = Object.values(ui.windows ?? {});
@@ -14,13 +14,13 @@ function refreshOpenDashboards(options = {}) {
 function refreshLatestRolls() {
   const windows = Object.values(ui.windows ?? {});
   for (const app of windows) {
-    if (app instanceof DiceStatsApp) {
+    if (app instanceof DiceStatsApp || app instanceof DiceStatsMonitorApp) {
       const root = app._getRootElement?.();
       if (root) app._renderLatestRoll(root);
     }
   }
   for (const app of foundry.applications.instances?.values?.() ?? []) {
-    if (app instanceof DiceStatsApp) {
+    if (app instanceof DiceStatsApp || app instanceof DiceStatsMonitorApp) {
       const root = app._getRootElement?.();
       if (root) app._renderLatestRoll(root);
     }
