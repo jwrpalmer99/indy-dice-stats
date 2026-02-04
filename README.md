@@ -18,7 +18,7 @@ Also works with pf2e but needs more testing, other systems MAY work if they use 
 - Streaks heatmap view (click the Distribution title to cycle views).
 - Supports standard D&D 5e rolls and Midi-QOL workflows.
 - Live "Latest Roll" monitor (optional, with d20-only and privacy-aware display).
-- Floating monitor window (scene control telescope icon).
+- Floating monitor window (scene control telescope icon), auto-resizes to show long rolls.
 - GM-only tools for reset, visibility, and fake data generation.
 - Compare selected players side-by-side.
 - Filters for action type, die type, session, and save/check detail.
@@ -63,6 +63,8 @@ Also works with pf2e but needs more testing, other systems MAY work if they use 
   - Record GM blind rolls (blindroll) in stats.
 - **Allow Players to See GM Stats** (World)
   - Include/exclude GM stats from non-GM views and All Players.
+- **Roll Processing Delay (ms)** (World)
+  - Delay processing chat and Midi-QOL rolls to allow other worfklows to finish. When Dice So Nice is active, processing waits for its completion hook instead of this delay.
 - **Show Latest Roll** (Client)
   - Show the "Latest Roll" monitor area in the title.
 - **Only Monitor d20** (Client)
