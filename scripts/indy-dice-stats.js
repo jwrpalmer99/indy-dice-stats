@@ -123,6 +123,21 @@ Hooks.once("init", () => {
     onChange: () => refreshOpenDashboards({ forceThemeRefresh: true })
   });
 
+  game.settings.register(MODULE_ID, "chartLegendScale", {
+    name: "Chart Legend Font Scale",
+    hint: "Multiplier applied to chart legend and axis label sizes.",
+    scope: "client",
+    config: true,
+    type: Number,
+    range: {
+      min: 0.8,
+      max: 1.6,
+      step: 0.05
+    },
+    default: 1,
+    onChange: () => refreshOpenDashboards({ forceThemeRefresh: true })
+  });
+
   game.settings.registerMenu(MODULE_ID, "viewer", {
     name: "Indy Dice Stats",
     label: "Open Dice Dashboard",
@@ -192,7 +207,7 @@ Hooks.once("ready", async () => {
   });
 });
 
-function applyFontPreview(fontBody, fontTitle, bodyScale, titleScale) {
+function applyFontPreview(fontBody, fontTitle, bodyScale, titleScale, chartLegendScale) {
   const roots = document.querySelectorAll(
     ".indy-dice-stats, .indy-dice-stats-reset, .indy-dice-stats-visibility, .indy-dice-stats-faker"
   );
@@ -201,6 +216,7 @@ function applyFontPreview(fontBody, fontTitle, bodyScale, titleScale) {
     if (fontTitle) root.style.setProperty("--ids-font-title", fontTitle);
     if (bodyScale !== undefined) root.style.setProperty("--ids-font-body-scale", String(bodyScale));
     if (titleScale !== undefined) root.style.setProperty("--ids-font-title-scale", String(titleScale));
+    if (chartLegendScale !== undefined) root.style.setProperty("--ids-chart-legend-scale", String(chartLegendScale));
   }
 
   refreshOpenDashboards({ forceThemeRefresh: true });
@@ -239,7 +255,8 @@ function bindFontPreview(app, html) {
     const titleValue = getValue("fontTitle");
     const bodyScale = Number(getValue("fontBodyScale"));
     const titleScale = Number(getValue("fontTitleScale"));
-    applyFontPreview(bodyValue, titleValue, bodyScale, titleScale);
+    const legendScale = Number(getValue("chartLegendScale"));
+    applyFontPreview(bodyValue, titleValue, bodyScale, titleScale, legendScale);
   };
   const handlePreviewEvent = (event) => {
     const target = event.target;
@@ -250,6 +267,7 @@ function bindFontPreview(app, html) {
       || name === `${MODULE_ID}.fontTitle`
       || name === `${MODULE_ID}.fontBodyScale`
       || name === `${MODULE_ID}.fontTitleScale`
+      || name === `${MODULE_ID}.chartLegendScale`
     ) {
       updatePreview();
     }
@@ -258,12 +276,12 @@ function bindFontPreview(app, html) {
   if (typeof html?.on === "function") {
     html.on(
       "change",
-      `select[name="${MODULE_ID}.fontBody"], select[name="${MODULE_ID}.fontTitle"], input[name="${MODULE_ID}.fontBodyScale"], input[name="${MODULE_ID}.fontTitleScale"]`,
+      `select[name="${MODULE_ID}.fontBody"], select[name="${MODULE_ID}.fontTitle"], input[name="${MODULE_ID}.fontBodyScale"], input[name="${MODULE_ID}.fontTitleScale"], input[name="${MODULE_ID}.chartLegendScale"]`,
       updatePreview
     );
     html.on(
       "input",
-      `select[name="${MODULE_ID}.fontBody"], select[name="${MODULE_ID}.fontTitle"], input[name="${MODULE_ID}.fontBodyScale"], input[name="${MODULE_ID}.fontTitleScale"]`,
+      `select[name="${MODULE_ID}.fontBody"], select[name="${MODULE_ID}.fontTitle"], input[name="${MODULE_ID}.fontBodyScale"], input[name="${MODULE_ID}.fontTitleScale"], input[name="${MODULE_ID}.chartLegendScale"]`,
       updatePreview
     );
   }
@@ -280,6 +298,7 @@ function bindFontPreview(app, html) {
         || name === `${MODULE_ID}.fontTitle`
         || name === `${MODULE_ID}.fontBodyScale`
         || name === `${MODULE_ID}.fontTitleScale`
+        || name === `${MODULE_ID}.chartLegendScale`
       ) {
         updatePreview();
         return;
@@ -317,7 +336,8 @@ Hooks.on("closeSettingsConfig", (app) => {
     game.settings.get(MODULE_ID, "fontBody"),
     game.settings.get(MODULE_ID, "fontTitle"),
     game.settings.get(MODULE_ID, "fontBodyScale"),
-    game.settings.get(MODULE_ID, "fontTitleScale")
+    game.settings.get(MODULE_ID, "fontTitleScale"),
+    game.settings.get(MODULE_ID, "chartLegendScale")
   );
 });
 

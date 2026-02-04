@@ -362,6 +362,7 @@ function applyFontSettings(scope) {
   const fontTitle = game.settings.get(MODULE_ID, "fontTitle");
   const bodyScale = Number(game.settings.get(MODULE_ID, "fontBodyScale")) || 1;
   const titleScale = Number(game.settings.get(MODULE_ID, "fontTitleScale")) || 1;
+  const chartLegendScale = Number(game.settings.get(MODULE_ID, "chartLegendScale")) || 1;
   const targets = [];
   if (scope) {
     const host = scope.closest?.(".indy-dice-stats, .indy-dice-stats-reset, .indy-dice-stats-visibility, .indy-dice-stats-faker")
@@ -378,6 +379,7 @@ function applyFontSettings(scope) {
     if (fontTitle) target.style.setProperty("--ids-font-title", fontTitle);
     target.style.setProperty("--ids-font-body-scale", String(bodyScale));
     target.style.setProperty("--ids-font-title-scale", String(titleScale));
+    target.style.setProperty("--ids-chart-legend-scale", String(chartLegendScale));
   }
 }
 

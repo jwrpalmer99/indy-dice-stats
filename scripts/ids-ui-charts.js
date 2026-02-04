@@ -158,6 +158,13 @@ function getBodyScale(root, app) {
   return Number.parseFloat(computed.getPropertyValue("--ids-font-body-scale")) || 1;
 }
 
+function getLegendScale(root, app) {
+  const scope = root ?? app.window?.content ?? app.element ?? document.getElementById(app.id);
+  const host = scope?.closest?.(".indy-dice-stats") || scope?.querySelector?.(".indy-dice-stats") || document.body;
+  const computed = getComputedStyle(host);
+  return Number.parseFloat(computed.getPropertyValue("--ids-chart-legend-scale")) || 1;
+}
+
 function renderDistributionChart(app, root, stats, dieKey, compareStats, normalize) {
   const canvas = root.querySelector("canvas[data-chart='distribution']");
   if (!canvas) return;
@@ -225,6 +232,7 @@ function renderDistributionChart(app, root, stats, dieKey, compareStats, normali
 
 
   const bodyScale = getBodyScale(root, app);
+  const legendScale = getLegendScale(root, app);
   const gridColor = getChartGridColor();
   const tickColor = getChartTickColor();
   const titleColor = getChartTitleColor();
@@ -243,14 +251,14 @@ function renderDistributionChart(app, root, stats, dieKey, compareStats, normali
       scales: {
           x: {
             grid: { display: false },
-            ticks: { color: tickColor, font: { size: 11 * bodyScale } }
+            ticks: { color: tickColor, font: { size: 11 * bodyScale * legendScale } }
           },
           y: {
             grid: { color: gridColor },
             ticks: {
               color: tickColor,
               callback: normalize ? (value) => `${value}%` : undefined,
-              font: { size: 11 * bodyScale }
+              font: { size: 11 * bodyScale * legendScale }
             },
             max: maxCeil
           }
@@ -259,7 +267,7 @@ function renderDistributionChart(app, root, stats, dieKey, compareStats, normali
           legend: {
             display: !!compareStats,
             position: "bottom",
-            labels: { color: tickColor, font: { size: 11 * bodyScale } }
+            labels: { color: tickColor, font: { size: 11 * bodyScale * legendScale } }
           },
           title: {
             display: false,
@@ -336,6 +344,7 @@ function renderTrendChart(app, root, globalStats, userId, compareIds, actionFilt
   });
 
   const bodyScale = getBodyScale(root, app);
+  const legendScale = getLegendScale(root, app);
   const gridColor = getChartGridColor();
   const tickColor = getChartTickColor();
   const faces = Number(String(dieKey).replace(/\D/g, ""));
@@ -384,13 +393,13 @@ function renderTrendChart(app, root, globalStats, userId, compareIds, actionFilt
             ticks: {
               color: tickColor,
               maxTicksLimit: 10,
-              font: { size: 11 * bodyScale }
+              font: { size: 11 * bodyScale * legendScale }
             },
             offset: true
           },
           y: {
             grid: { color: gridColor },
-            ticks: { color: tickColor, font: { size: 11 * bodyScale } },
+            ticks: { color: tickColor, font: { size: 11 * bodyScale * legendScale } },
             min: yMin,
             max: yMax
           }
@@ -402,7 +411,7 @@ function renderTrendChart(app, root, globalStats, userId, compareIds, actionFilt
           legend: {
             display: compareMode,
             position: "bottom",
-            labels: { color: tickColor, font: { size: 11 * bodyScale } }
+            labels: { color: tickColor, font: { size: 11 * bodyScale * legendScale } }
           },
         title: { display: false },
         tooltip: {
@@ -443,6 +452,7 @@ function renderBreakdownChart(app, root, stats, actionFilter, dieFilter, detailF
   const computed = getComputedStyle(host);
   const bodyFont = computed.getPropertyValue("--ids-font-body").trim() || "Manrope";
   const bodyScale = Number.parseFloat(computed.getPropertyValue("--ids-font-body-scale")) || 1;
+  const legendScale = Number.parseFloat(computed.getPropertyValue("--ids-chart-legend-scale")) || 1;
 
   let labels = [];
   let values = [];
@@ -618,7 +628,7 @@ function renderBreakdownChart(app, root, stats, actionFilter, dieFilter, detailF
       plugins: {
         legend: {
           position: "bottom",
-          labels: { boxWidth: 14, color: legendColor, font: { size: 11 * bodyScale } },
+          labels: { boxWidth: 14, color: legendColor, font: { size: 11 * bodyScale * legendScale } },
           display: hasData
         },
         title: {
