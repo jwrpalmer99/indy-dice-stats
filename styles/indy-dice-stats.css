@@ -1,6 +1,8 @@
 @import url("https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Manrope:wght@400;500;600&display=swap");
 
 .indy-dice-stats {
+  --ids-font-body: "Manrope", "Segoe UI", sans-serif;
+  --ids-font-title: "Fraunces", "Georgia", serif;
   --ids-ink: #1f2937;
   --ids-muted: #475569;
   --ids-accent: #0f766e;
@@ -12,7 +14,10 @@
 }
 
 .indy-dice-stats-reset,
-.indy-dice-stats-visibility {
+.indy-dice-stats-visibility,
+.indy-dice-stats-faker {
+  --ids-font-body: "Manrope", "Segoe UI", sans-serif;
+  --ids-font-title: "Fraunces", "Georgia", serif;
   --ids-ink: #1f2937;
   --ids-muted: #475569;
   --ids-accent: #0f766e;
@@ -26,7 +31,7 @@
 .indy-dice-stats .window-content {
   padding: 0;
   background: linear-gradient(135deg, #f9f3e6 0%, #e5f4f3 55%, #f8eadf 100%);
-  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-family: var(--ids-font-body, "Manrope", "Segoe UI", sans-serif);
   color: var(--ids-ink);
   overflow: auto;
 }
@@ -62,7 +67,7 @@
 }
 
 .indy-dice-stats .ids-title h1 {
-  font-family: "Fraunces", "Georgia", serif;
+  font-family: var(--ids-font-title, "Fraunces", "Georgia", serif);
   font-size: 26px;
   line-height: 1.1;
   margin: 4px 0 6px;
@@ -215,7 +220,7 @@
 }
 
 .indy-dice-stats .ids-stat-value {
-  font-family: "Fraunces", "Georgia", serif;
+  font-family: var(--ids-font-title, "Fraunces", "Georgia", serif);
   font-size: 28px;
   margin: 0 0 6px;
   position: relative;
@@ -458,7 +463,7 @@
 }
 
 .indy-dice-stats .ids-card-header h2 {
-  font-family: "Fraunces", "Georgia", serif;
+  font-family: var(--ids-font-title, "Fraunces", "Georgia", serif);
   font-size: 20px;
   margin: 0;
   color: #0f172a;
@@ -515,6 +520,10 @@ body.theme-dark .indy-dice-stats .ids-title h1 {
   color: var(--ids-ink);
 }
 
+body.theme-dark .indy-dice-stats .ids-card-header h2 {
+  color: var(--ids-ink);
+}
+
 body.theme-dark .indy-dice-stats .ids-controls {
   background: rgba(17, 24, 39, 0.85);
   border-color: var(--ids-border);
@@ -554,14 +563,14 @@ body.theme-dark .indy-dice-stats td {
 
 .indy-dice-stats-reset .window-content {
   padding: 20px;
-  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-family: var(--ids-font-body, "Manrope", "Segoe UI", sans-serif);
   background: linear-gradient(135deg, #f9f3e6 0%, #f0f7f6 55%, #f8eadf 100%);
   color: var(--ids-ink);
 }
 
 .indy-dice-stats-reset .ids-reset__header h2 {
   margin: 0 0 6px;
-  font-family: "Fraunces", "Georgia", serif;
+  font-family: var(--ids-font-title, "Fraunces", "Georgia", serif);
   font-size: 22px;
 }
 

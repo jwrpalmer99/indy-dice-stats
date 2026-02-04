@@ -23,6 +23,7 @@ import {
   DiceStatsResetApp,
   DiceStatsVisibilityApp,
   DiceStatsFakerApp,
+  refreshOpenDashboards,
   watchThemeChanges
 } from "./ids-ui.js";
 
@@ -65,6 +66,31 @@ Hooks.once("init", () => {
     config: false,
     type: Object,
     default: {}
+  });
+
+  const defaultBody = "\"Manrope\", \"Segoe UI\", sans-serif";
+  const defaultTitle = "\"Fraunces\", \"Georgia\", serif";
+
+  game.settings.register(MODULE_ID, "fontBody", {
+    name: "Body Font",
+    hint: "Font used for general text in the module.",
+    scope: "client",
+    config: true,
+    type: String,
+    choices: {},
+    default: defaultBody,
+    onChange: () => refreshOpenDashboards({ forceThemeRefresh: true })
+  });
+
+  game.settings.register(MODULE_ID, "fontTitle", {
+    name: "Title Font",
+    hint: "Font used for titles and large numbers.",
+    scope: "client",
+    config: true,
+    type: String,
+    choices: {},
+    default: defaultTitle,
+    onChange: () => refreshOpenDashboards({ forceThemeRefresh: true })
   });
 
   game.settings.registerMenu(MODULE_ID, "viewer", {
@@ -134,6 +160,103 @@ Hooks.once("ready", async () => {
     if (!payload?.results || !payload?.actionType || !payload?.userId) return;
     handleRollPayloadsLocally([payload]);
   });
+});
+
+function applyFontPreview(fontBody, fontTitle) {
+  const roots = document.querySelectorAll(
+    ".indy-dice-stats, .indy-dice-stats-reset, .indy-dice-stats-visibility, .indy-dice-stats-faker"
+  );
+  for (const root of roots) {
+    if (fontBody) root.style.setProperty("--ids-font-body", fontBody);
+    if (fontTitle) root.style.setProperty("--ids-font-title", fontTitle);
+  }
+}
+
+function getFontChoices() {
+  const fontChoices = {};
+  const definitions = CONFIG?.fontDefinitions || {};
+  for (const [key, def] of Object.entries(definitions)) {
+    if (!def) continue;
+    const family = def.fontFamily || def.family || def.font || key;
+    const label = def.label || def.name || family;
+    fontChoices[family] = label;
+  }
+  const defaultBody = "\"Manrope\", \"Segoe UI\", sans-serif";
+  const defaultTitle = "\"Fraunces\", \"Georgia\", serif";
+  fontChoices[defaultBody] ??= "Manrope (sans)";
+  fontChoices[defaultTitle] ??= "Fraunces (serif)";
+  return fontChoices;
+}
+
+function bindFontPreview(app, html) {
+  let root = html?.[0];
+  if (root?.tagName?.toLowerCase() === "button") {
+    root = root.closest?.("form") || root.closest?.(".app") || document;
+  }
+  let form = root?.querySelector?.("form");
+  if (!form && root?.tagName?.toLowerCase() === "form") {
+    form = root;
+  }
+  if (!form) return;
+  if (app._idsFontPreviewBound) return;
+  app._idsFontPreviewBound = true;
+  const getValue = (name) => form.querySelector(`[name="${MODULE_ID}.${name}"]`)?.value;
+  const updatePreview = () => {
+    const bodyValue = getValue("fontBody");
+    const titleValue = getValue("fontTitle");
+    applyFontPreview(bodyValue, titleValue);
+  };
+  const handlePreviewEvent = (event) => {
+    const target = event.target;
+    if (!target) return;
+    const name = target.getAttribute?.("name") || "";
+    if (name === `${MODULE_ID}.fontBody` || name === `${MODULE_ID}.fontTitle`) updatePreview();
+  };
+
+  if (typeof html?.on === "function") {
+    html.on("change", `select[name="${MODULE_ID}.fontBody"], select[name="${MODULE_ID}.fontTitle"]`, updatePreview);
+    html.on("input", `select[name="${MODULE_ID}.fontBody"], select[name="${MODULE_ID}.fontTitle"]`, updatePreview);
+  }
+  form.addEventListener("change", handlePreviewEvent, true);
+  form.addEventListener("input", handlePreviewEvent, true);
+
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type !== "attributes") continue;
+      const target = mutation.target;
+      const name = target?.getAttribute?.("name") || "";
+      if (name === `${MODULE_ID}.fontBody` || name === `${MODULE_ID}.fontTitle`) {
+        updatePreview();
+        return;
+      }
+    }
+  });
+  observer.observe(form, { attributes: true, subtree: true, attributeFilter: ["value"] });
+  app._idsFontPreviewObserver = observer;
+
+  requestAnimationFrame(updatePreview);
+}
+
+Hooks.on("renderSettingsConfig", (app, html) => {
+  if (!app._idsFontChoicesApplied) {
+    const bodySetting = game.settings.settings.get(`${MODULE_ID}.fontBody`);
+    const titleSetting = game.settings.settings.get(`${MODULE_ID}.fontTitle`);
+    const choices = getFontChoices();
+    if (bodySetting) bodySetting.choices = choices;
+    if (titleSetting) titleSetting.choices = choices;
+    app._idsFontChoicesApplied = true;
+    app.render(false);
+    return;
+  }
+  bindFontPreview(app, html);
+});
+
+Hooks.on("closeSettingsConfig", () => {
+  refreshOpenDashboards({ forceThemeRefresh: true });
+  applyFontPreview(
+    game.settings.get(MODULE_ID, "fontBody"),
+    game.settings.get(MODULE_ID, "fontTitle")
+  );
 });
 
 Hooks.on("createChatMessage", async (message, options, userId) => {
