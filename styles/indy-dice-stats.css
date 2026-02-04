@@ -15,7 +15,7 @@
   --ids-card: #fff9f0;
   --ids-border: rgba(15, 118, 110, 0.2);
   --ids-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
-  --ids-roll-chip-glow-default-rgb: 15, 118, 110;
+  --ids-roll-chip-glow-default-rgb: 80, 80, 80;
   --ids-roll-chip-glow-crit-rgb: 0, 250, 100;
   --ids-roll-chip-glow-fail-rgb: 250, 29, 72;
   --ids-roll-chip-glow-adv-rgb: 0, 200, 83;
@@ -107,26 +107,36 @@
   box-shadow: 0 0 0 0 rgba(var(--ids-roll-chip-glow-rgb), 0);
   z-index: -1;
   pointer-events: none;
-  animation: ids-title-pulse 1.8s ease-out;
-  will-change: background-color, box-shadow;
+  opacity: 0;
+  transform: scaleX(0.96);
+  transform-origin: center;
+  animation: ids-title-pulse 2.2s cubic-bezier(0.2, 0, 0.2, 1);
+  will-change: background-color, box-shadow, opacity, transform;
 }
 
 @keyframes ids-title-pulse {
   0% {
     background-color: rgba(var(--ids-roll-chip-glow-rgb), 0);
     box-shadow: 0 0 0 0 rgba(var(--ids-roll-chip-glow-rgb), 0);
+    opacity: 0;
+    transform: scaleX(0.96);
   }
-  45% {
-    background-color: rgba(var(--ids-roll-chip-glow-rgb), 0.32);
-    box-shadow: 0 0 0 6px rgba(var(--ids-roll-chip-glow-rgb), 0.20);
+  30% {
+    background-color: rgba(var(--ids-roll-chip-glow-rgb), 0.26);
+    box-shadow: 0 0 0 8px rgba(var(--ids-roll-chip-glow-rgb), 0.2);
+    opacity: 1;
+    transform: scaleX(1);
   }
-  70% {
-    background-color: rgba(var(--ids-roll-chip-glow-rgb), 0.16);
-    box-shadow: 0 0 0 3px rgba(var(--ids-roll-chip-glow-rgb), 0.1);
+  65% {
+    background-color: rgba(var(--ids-roll-chip-glow-rgb), 0.14);
+    box-shadow: 0 0 0 4px rgba(var(--ids-roll-chip-glow-rgb), 0.12);
+    opacity: 0.6;
   }
   100% {
     background-color: rgba(var(--ids-roll-chip-glow-rgb), 0);
     box-shadow: 0 0 0 0 rgba(var(--ids-roll-chip-glow-rgb), 0);
+    opacity: 0;
+    transform: scaleX(1.02);
   }
 }
 
@@ -691,7 +701,7 @@ body.theme-dark .indy-dice-stats {
   --ids-card: #111827;
   --ids-border: rgba(148, 163, 184, 0.25);
   --ids-shadow: 0 18px 40px rgba(2, 6, 23, 0.55);
-  --ids-roll-chip-glow-default-rgb: 20, 184, 166;
+  --ids-roll-chip-glow-default-rgb: 80, 124, 166;
   --ids-roll-chip-glow-crit-rgb: 0, 255, 140;
   --ids-roll-chip-glow-fail-rgb: 248, 113, 113;
   --ids-roll-chip-glow-adv-rgb: 0, 220, 120;
@@ -773,7 +783,7 @@ body.theme-dark .indy-dice-stats .ids-roll-advantage--dis {
 
 body.theme-dark .indy-dice-stats .ids-roll-die--adv {
   background: rgba(160, 200, 174, 0.2);
-  border-color: rgba(130, 197, 155, 0.45);
+  border-color: rgba(130, 247, 155, 0.45);
   box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.3);
 }
 
