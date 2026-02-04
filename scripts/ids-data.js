@@ -580,6 +580,10 @@ function getAdvantageFlag(source) {
     if (mode.toLowerCase().includes("dis")) return "disadvantage";
     if (mode.toLowerCase().includes("adv")) return "advantage";
   }
+  if (typeof mode === "number") {
+    if (mode < 0) return "disadvantage";
+    if (mode > 0) return "advantage";
+  }  
   return null;
 }
 
