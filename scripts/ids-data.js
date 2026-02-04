@@ -85,6 +85,94 @@ export function normalizeGlobalStats(raw) {
   }
   return base;
 }
+
+function cloneLatestRollResults(results) {
+  const cloned = {};
+  if (!results || typeof results !== "object") return cloned;
+  for (const [dieKey, faces] of Object.entries(results)) {
+    if (!faces || typeof faces !== "object") continue;
+    const faceCounts = {};
+    for (const [face, count] of Object.entries(faces)) {
+      const value = Number(count) || 0;
+      if (value <= 0) continue;
+      faceCounts[face] = value;
+    }
+    if (Object.keys(faceCounts).length > 0) cloned[dieKey] = faceCounts;
+  }
+  return cloned;
+}
+
+function cloneLatestRollSequence(sequence) {
+  const cloned = {};
+  if (!sequence || typeof sequence !== "object") return cloned;
+  for (const [dieKey, list] of Object.entries(sequence)) {
+    if (!Array.isArray(list) || list.length === 0) continue;
+    const values = list.map((value) => Number(value)).filter((value) => Number.isFinite(value));
+    if (values.length > 0) cloned[dieKey] = values;
+  }
+  return cloned;
+}
+
+export function normalizeLatestRoll(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const rollCount = Number(raw.rolls);
+  const entry = {
+    userId: raw.userId || null,
+    userName: raw.userName ? String(raw.userName) : null,
+    actionType: raw.actionType || "other",
+    detailKey: raw.detailKey || null,
+    advantage: raw.advantage === "disadvantage" ? "disadvantage"
+      : (raw.advantage === "advantage" ? "advantage" : null),
+    rolls: Number.isFinite(rollCount) ? rollCount : 1,
+    results: cloneLatestRollResults(raw.results),
+    sequence: cloneLatestRollSequence(raw.sequence),
+    at: Number(raw.at) || Date.now()
+  };
+  if (!entry.userName && entry.userId) {
+    const user = game.users?.get?.(entry.userId);
+    if (user?.name) entry.userName = user.name;
+  }
+  return entry;
+}
+
+export function createLatestRollEntry(payload) {
+  if (!payload || typeof payload !== "object") return null;
+  return normalizeLatestRoll({
+    userId: payload.userId,
+    userName: payload.userName,
+    actionType: payload.actionType,
+    detailKey: payload.detailKey || null,
+    advantage: payload.advantage || null,
+    rolls: payload.rolls,
+    results: payload.results,
+    sequence: payload.sequence,
+    at: Date.now()
+  });
+}
+
+export function setLatestRoll(entry, options = {}) {
+  const normalized = normalizeLatestRoll(entry);
+  if (!normalized) return null;
+  const hasD20 = (() => {
+    const hasKey = (container) => Object.keys(container || {})
+      .some((key) => String(key).toLowerCase() === "d20");
+    return hasKey(normalized.results) || hasKey(normalized.sequence);
+  })();
+  state.latestRoll = normalized;
+  if (hasD20) {
+    state.latestD20Roll = normalized;
+  }
+  const { broadcast = false, refresh = false } = options;
+  if (broadcast && game.socket) {
+    game.socket.emit(`module.${MODULE_ID}`, {
+      type: "latestRoll",
+      data: normalized,
+      senderId: game.user?.id
+    });
+  }
+  if (refresh) scheduleRefresh();
+  return normalized;
+}
 export function getUserStats(userId) {
   if (!userId) return createEmptyStats();
   const globalStats = getGlobalStats();
@@ -347,6 +435,60 @@ export function safeLower(value) {
   return typeof value === "string" ? value.toLowerCase() : "";
 }
 
+function stripAdvantageMarkers(value) {
+  if (!value) return "";
+  return String(value)
+    .replace(/\((disadvantage|advantage)\)/gi, " ")
+    .replace(/\bwith\s+(disadvantage|advantage)\b/gi, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function stripSaveCheckMarkers(value) {
+  if (!value) return "";
+  return String(value)
+    .replace(/\bsaving throw\b/gi, " ")
+    .replace(/\bability check\b/gi, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function normalizeDetailCandidate(value) {
+  return stripSaveCheckMarkers(stripAdvantageMarkers(value));
+}
+
+function extractAdvantageFromText(value) {
+  if (!value) return null;
+  const text = String(value).toLowerCase();
+  if (text.includes("disadvantage")) return "disadvantage";
+  if (text.includes("advantage")) return "advantage";
+  return null;
+}
+
+function getAdvantageFlag(source) {
+  if (!source || typeof source !== "object") return null;
+  const disadvantage = source.disadvantage ?? source.disadvantaged;
+  const advantage = source.advantage ?? source.advantaged;
+  if (disadvantage === true || disadvantage === 1) return "disadvantage";
+  if (advantage === true || advantage === 1) return "advantage";
+  if (typeof disadvantage === "string" && disadvantage.toLowerCase().includes("dis")) return "disadvantage";
+  if (typeof advantage === "string" && advantage.toLowerCase().includes("adv")) return "advantage";
+  const mode = source.advantageMode || source.mode || source.rollMode;
+  if (typeof mode === "string") {
+    if (mode.toLowerCase().includes("dis")) return "disadvantage";
+    if (mode.toLowerCase().includes("adv")) return "advantage";
+  }
+  return null;
+}
+
+function mergeAdvantageState(current, next) {
+  if (!next) return current || null;
+  if (current === "disadvantage") return current;
+  if (next === "disadvantage") return next;
+  if (current === "advantage") return current;
+  return next;
+}
+
 export function normalizeActionType(raw) {
   if (!raw) return "other";
   const value = safeLower(String(raw));
@@ -367,9 +509,23 @@ export function normalizeActionType(raw) {
 
 export function extractActionType(message, roll, workflowMeta) {
   const candidates = [];
-  const rollOptions = roll?.options || {};
-  if (rollOptions.type) candidates.push(rollOptions.type);
+  let rollOptions = roll?.options || {};
+  if ((!rollOptions || Object.keys(rollOptions).length === 0) && typeof roll === "string") {
+    try {
+      const parsed = JSON.parse(roll);
+      rollOptions = parsed?.options || rollOptions;
+    } catch (err) {
+      // ignore parse errors for non-JSON roll strings
+    }
+  }
   if (rollOptions.rollType) candidates.push(rollOptions.rollType);
+  if (rollOptions.rolltype) candidates.push(rollOptions.rolltype);
+  if (rollOptions.type) candidates.push(rollOptions.type);
+
+  const dnd5eFlags = message?.flags?.dnd5e;
+  if (dnd5eFlags?.roll?.type) candidates.push(dnd5eFlags.roll.type);
+  if (dnd5eFlags?.roll?.rollType) candidates.push(dnd5eFlags.roll.rollType);
+  if (dnd5eFlags?.activity?.type) candidates.push(dnd5eFlags.activity.type);
 
   const midiFlags = message?.flags?.["midi-qol"];
   if (midiFlags?.rollType) candidates.push(midiFlags.rollType);
@@ -383,11 +539,13 @@ export function extractActionType(message, roll, workflowMeta) {
 
   if (workflowMeta?.actionType) candidates.push(workflowMeta.actionType);
 
+  let fallback = null;
   for (const candidate of candidates) {
-    const normalized = normalizeActionType(candidate);
-    if (normalized) return normalized;
+    const normalized = normalizeActionType(stripAdvantageMarkers(candidate));
+    if (normalized && normalized !== "other") return normalized;
+    if (normalized === "other") fallback = normalized;
   }
-  return normalizeActionType(rollOptions.flavor || message?.flavor || message?.content);
+  return fallback || normalizeActionType(rollOptions.flavor || message?.flavor || message?.content);
 }
 
 export function shouldTrackMessage(message, userId) {
@@ -396,6 +554,7 @@ export function shouldTrackMessage(message, userId) {
   if (state.processedMessages.has(message.id)) return false;
   const flags = message.flags?.[MODULE_ID];
   if (flags?.tracked === false) return false;
+  if (flags?.trackedViaSocket && game.user?.isGM) return false;
   return true;
 }
 
@@ -466,22 +625,89 @@ export function markMessageProcessed(messageId) {
   state.processedMessages.add(messageId);
 }
 
-export function collectWorkflowRolls(workflow) {
-  if (!workflow) return [];
-  const rolls = [];
-  if (Array.isArray(workflow.rolls)) {
-    rolls.push(...workflow.rolls);
-  } else if (Array.isArray(workflow.rolls?.contents)) {
-    rolls.push(...workflow.rolls.contents);
+function describeWorkflowRoll(roll) {
+  if (!roll || typeof roll !== "object") return "Unknown roll";
+  const formula = roll.formula || roll._formula;
+  const total = Number.isFinite(roll.total) ? roll.total : roll.result;
+  if (formula) return total !== undefined ? `${formula} = ${total}` : formula;
+  if (Array.isArray(roll.terms)) {
+    const termFormula = roll.terms
+      .map((term) => term?.formula || term?.expression || (term?.faces ? `d${term.faces}` : ""))
+      .filter(Boolean)
+      .join(" + ");
+    if (termFormula) return total !== undefined ? `${termFormula} = ${total}` : termFormula;
   }
-  if (workflow.attackRoll) rolls.push(workflow.attackRoll);
-  if (Array.isArray(workflow.damageRolls)) rolls.push(...workflow.damageRolls);
-  if (Array.isArray(workflow.damageRolls?.contents)) rolls.push(...workflow.damageRolls.contents);
-  if (workflow.damageRoll) rolls.push(workflow.damageRoll);
-  if (workflow.saveRoll) rolls.push(workflow.saveRoll);
-  if (Array.isArray(workflow.saves)) rolls.push(...workflow.saves);
-  if (Array.isArray(workflow.saves?.contents)) rolls.push(...workflow.saves.contents);
-  return rolls.filter(Boolean);
+  if (roll.id) return `Roll ${roll.id}`;
+  return "Roll";
+}
+
+export function collectWorkflowRolls(workflow, options = {}) {
+  if (!workflow) return [];
+  const debug = !!options.debug;
+  const rolls = [];
+  const sourceCounts = debug ? {} : null;
+  const rollSources = debug ? new Map() : null;
+
+  const addRoll = (roll, label) => {
+    if (!roll) return;
+    rolls.push(roll);
+    if (!debug) return;
+    sourceCounts[label] = (sourceCounts[label] || 0) + 1;
+    const labels = rollSources.get(roll) ?? new Set();
+    labels.add(label);
+    rollSources.set(roll, labels);
+  };
+
+  const addList = (label, list) => {
+    if (!Array.isArray(list)) return;
+    for (const roll of list) addRoll(roll, label);
+  };
+
+  if (Array.isArray(workflow.rolls)) {
+    addList("workflow.rolls", workflow.rolls);
+  } else if (Array.isArray(workflow.rolls?.contents)) {
+    addList("workflow.rolls.contents", workflow.rolls.contents);
+  }
+  if (workflow.attackRoll) addRoll(workflow.attackRoll, "workflow.attackRoll");
+  if (Array.isArray(workflow.damageRolls)) {
+    addList("workflow.damageRolls", workflow.damageRolls);
+  } else if (Array.isArray(workflow.damageRolls?.contents)) {
+    addList("workflow.damageRolls.contents", workflow.damageRolls.contents);
+  }
+  if (workflow.damageRoll) addRoll(workflow.damageRoll, "workflow.damageRoll");
+  if (workflow.saveRoll) addRoll(workflow.saveRoll, "workflow.saveRoll");
+  if (Array.isArray(workflow.saves)) {
+    addList("workflow.saves", workflow.saves);
+  } else if (Array.isArray(workflow.saves?.contents)) {
+    addList("workflow.saves.contents", workflow.saves.contents);
+  }
+
+  const unique = [];
+  const seen = new Set();
+  for (const roll of rolls) {
+    if (!roll || seen.has(roll)) continue;
+    seen.add(roll);
+    unique.push(roll);
+  }
+
+  if (debug) {
+    const duplicates = [];
+    for (const [roll, labels] of rollSources.entries()) {
+      if (labels.size <= 1) continue;
+      duplicates.push({
+        roll: describeWorkflowRoll(roll),
+        sources: Array.from(labels)
+      });
+    }
+    console.debug("Indy Dice Stats | Midi-QOL roll capture", {
+      total: rolls.length,
+      unique: unique.length,
+      sources: sourceCounts,
+      duplicates
+    });
+  }
+
+  return unique;
 }
 export function resolveUserIdFromActor(actor) {
   if (!actor) return null;
@@ -554,6 +780,8 @@ export function handleRollPayloadsLocally(payloads) {
     applyStreaksForSequence(dateStats, actionType, sequence, detailKey);
     applyStreaksForSequence(userDateStatsEntry, actionType, sequence, detailKey);
   }
+  const latestEntry = createLatestRollEntry(payloads[payloads.length - 1]);
+  if (latestEntry) setLatestRoll(latestEntry, { broadcast: true });
   markGlobalStatsDirty();
   scheduleSave();
   scheduleSnapshotBroadcast();
@@ -699,7 +927,8 @@ export function buildPayloadFromRolls(rolls, actionType, userId) {
     userId,
     rolls: 0,
     results: {},
-    sequence: {}
+    sequence: {},
+    advantage: null
   };
   for (const roll of rolls) {
     const results = buildResultCountsFromRoll(roll);
@@ -714,21 +943,52 @@ export function buildPayloadFromRolls(rolls, actionType, userId) {
 
 export function resolveRollActionType(roll, fallbackAction) {
   if (!roll) return fallbackAction;
-  const rollType = roll.options?.type || roll.options?.rollType || roll.options?.rolltype;
-  if (rollType) return normalizeActionType(rollType);
-  if (roll.options?.flavor) return normalizeActionType(roll.options.flavor);
-  return fallbackAction;
+  let rollOptions = roll?.options || {};
+  if ((!rollOptions || Object.keys(rollOptions).length === 0) && typeof roll === "string") {
+    try {
+      const parsed = JSON.parse(roll);
+      rollOptions = parsed?.options || rollOptions;
+    } catch (err) {
+      // ignore parse errors for non-JSON roll strings
+    }
+  }
+
+  const candidates = [];
+  if (rollOptions.rollType) candidates.push(rollOptions.rollType);
+  if (rollOptions.rolltype) candidates.push(rollOptions.rolltype);
+  if (rollOptions.type) candidates.push(rollOptions.type);
+  if (rollOptions.flavor) candidates.push(rollOptions.flavor);
+
+  let fallback = null;
+  for (const candidate of candidates) {
+    const normalized = normalizeActionType(candidate);
+    if (normalized && normalized !== "other") return normalized;
+    if (normalized === "other") fallback = normalized;
+  }
+
+  const normalizedFallback = fallbackAction ? normalizeActionType(fallbackAction) : null;
+  if (normalizedFallback && normalizedFallback !== "other") return normalizedFallback;
+  return fallback || normalizedFallback || fallbackAction || "other";
 }
 
 export function resolveRollDetailKey(roll, actionType, message, workflowMeta) {
   if (!roll) return null;
   const detailCandidates = [];
-  const flags = roll.options?.flags || {};
+  let rollOptions = roll?.options || {};
+  if ((!rollOptions || Object.keys(rollOptions).length === 0) && typeof roll === "string") {
+    try {
+      const parsed = JSON.parse(roll);
+      rollOptions = parsed?.options || rollOptions;
+    } catch (err) {
+      // ignore parse errors for non-JSON roll strings
+    }
+  }
+  const flags = rollOptions?.flags || {};
   const dnd5eFlags = flags.dnd5e;
   if (dnd5eFlags?.skillId) detailCandidates.push(dnd5eFlags.skillId);
   if (dnd5eFlags?.abilityId) detailCandidates.push(dnd5eFlags.abilityId);
   if (dnd5eFlags?.ability) detailCandidates.push(dnd5eFlags.ability);
-  if (roll.options?.flavor) detailCandidates.push(roll.options.flavor);
+  if (rollOptions?.flavor) detailCandidates.push(rollOptions.flavor);
   if (message?.flavor) detailCandidates.push(message.flavor);
 
   const pf2eContext = workflowMeta?.pf2eContext || message?.flags?.pf2e?.context;
@@ -739,12 +999,42 @@ export function resolveRollDetailKey(roll, actionType, message, workflowMeta) {
 
   for (const candidate of detailCandidates) {
     if (!candidate) continue;
-    const value = safeLower(String(candidate));
+    const value = safeLower(normalizeDetailCandidate(candidate));
     if (["save", "saving-throw"].includes(value)) return null;
     if (actionType === "save") return value;
     if (["check", "skill", "ability"].includes(actionType)) return value;
   }
   return null;
+}
+
+export function extractAdvantageState(roll, message) {
+  let rollOptions = roll?.options || {};
+  if ((!rollOptions || Object.keys(rollOptions).length === 0) && typeof roll === "string") {
+    try {
+      const parsed = JSON.parse(roll);
+      rollOptions = parsed?.options || rollOptions;
+    } catch (err) {
+      // ignore parse errors for non-JSON roll strings
+    }
+  }
+
+  const sources = [
+    rollOptions,
+    rollOptions?.flags?.dnd5e?.roll,
+    message?.flags?.dnd5e?.roll,
+    message?.flags?.["midi-qol"]
+  ];
+  for (const source of sources) {
+    const flagged = getAdvantageFlag(source);
+    if (flagged) return flagged;
+  }
+
+  const text = [
+    rollOptions?.flavor,
+    message?.flavor,
+    message?.content
+  ].filter(Boolean).join(" ");
+  return extractAdvantageFromText(text);
 }
 
 export function getPf2eDetailFromContext(context, actionType) {
@@ -766,9 +1056,11 @@ export function buildPayloadsFromRolls(rolls, fallbackAction, userId, message, w
     if (!roll) continue;
     const actionType = resolveRollActionType(roll, fallbackAction);
     const detailKey = resolveRollDetailKey(roll, actionType, message, workflowMeta);
+    const advantage = extractAdvantageState(roll, message);
     const payloadKey = `${actionType}|${detailKey || "all"}`;
     const payload = payloadsByKey[payloadKey] ??= buildPayloadFromRolls([], actionType, userId);
     payload.detailKey = detailKey;
+    payload.advantage = mergeAdvantageState(payload.advantage, advantage);
     const results = buildResultCountsFromRoll(roll);
     const sequences = buildResultSequencesFromRoll(roll);
     if (Object.keys(results).length === 0 && Object.keys(sequences).length === 0) continue;

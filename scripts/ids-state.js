@@ -13,7 +13,9 @@ export const state = {
   themeIsDark: null,
   candlestickRegistered: false,
   uiStateDebounced: null,
-  uiStatePending: null
+  uiStatePending: null,
+  latestRoll: null,
+  latestD20Roll: null
 };
 
 export function debounce(fn, waitMs) {

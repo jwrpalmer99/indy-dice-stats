@@ -68,6 +68,8 @@
 .indy-dice-stats .ids-title {
   max-width: 220px;
   margin:6px;
+  display: grid;
+  gap: 6px;
 }
 
 .indy-dice-stats .ids-title h1 {
@@ -90,6 +92,120 @@
   margin: 0;
   color: var(--ids-muted);
   font-size: calc(12px * var(--ids-font-body-scale, 1));
+}
+
+.indy-dice-stats .ids-title__default[hidden],
+.indy-dice-stats .ids-title__live[hidden] {
+  display: none;
+}
+
+.indy-dice-stats .ids-roll-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.indy-dice-stats .ids-roll-action {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: calc(10px * var(--ids-font-body-scale, 1));
+  color: var(--ids-muted);
+}
+
+.indy-dice-stats .ids-roll-advantage {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: calc(10px * var(--ids-font-body-scale, 1));
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.2);
+  color: #14532d;
+  border: 1px solid rgba(22, 163, 74, 0.35);
+}
+
+.indy-dice-stats .ids-roll-advantage--dis {
+  background: rgba(225, 29, 72, 0.2);
+  color: #7f1d1d;
+  border-color: rgba(225, 29, 72, 0.35);
+}
+
+.indy-dice-stats .ids-roll-advantage--adv {
+  background: rgba(22, 163, 74, 0.2);
+  color: #14532d;
+  border-color: rgba(22, 163, 74, 0.35);
+}
+
+.indy-dice-stats .ids-roll-empty {
+  font-size: calc(11px * var(--ids-font-body-scale, 1));
+  color: var(--ids-muted);
+}
+
+.indy-dice-stats .ids-roll-die {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(106, 107, 109, 0.15);
+  border: 1px solid rgba(114, 116, 119, 0.2);
+  font-size: calc(11px * var(--ids-font-body-scale, 1));
+  color: var(--ids-ink);
+}
+
+.indy-dice-stats .ids-roll-die--adv {
+  background: rgba(114, 147, 126, 0.18);
+  border-color: rgba(118, 139, 126, 0.4);
+  box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.28);
+}
+
+.indy-dice-stats .ids-roll-die--crit {
+  background: rgba(22, 163, 74, 0.2);
+  border-color: rgba(22, 163, 74, 0.45);
+  box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.3);
+}
+
+.indy-dice-stats .ids-roll-die--fail {
+  background: rgba(225, 29, 72, 0.18);
+  border-color: rgba(225, 29, 72, 0.35);
+  box-shadow: 0 0 0 1px rgba(225, 29, 72, 0.28);
+}
+
+.indy-dice-stats .ids-roll-die-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78em;
+  font-weight: 600;
+}
+
+.indy-dice-stats .ids-roll-results {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.indy-dice-stats .ids-roll-result {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(111, 120, 119, 0.12);
+  color: var(--ids-ink);
+  font-weight: 600;
+}
+
+.indy-dice-stats .ids-roll-result--crit {
+  background: rgba(22, 163, 74, 0.22);
+  color: #14532d;
+  box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.45);
+}
+
+.indy-dice-stats .ids-roll-result--fail {
+  background: rgba(225, 29, 72, 0.2);
+  color: #7f1d1d;
+  box-shadow: 0 0 0 1px rgba(225, 29, 72, 0.35);
 }
 
 .indy-dice-stats .ids-controls {
@@ -522,6 +638,58 @@ body.theme-dark .indy-dice-stats .ids-root {
 
 body.theme-dark .indy-dice-stats .ids-title h1 {
   color: var(--ids-ink);
+}
+
+body.theme-dark .indy-dice-stats .ids-roll-die {
+  background: rgba(162, 183, 181, 0.2);
+  border-color: rgba(158, 179, 177, 0.35);
+}
+
+body.theme-dark .indy-dice-stats .ids-roll-die--crit {
+  background: rgba(34, 197, 94, 0.22);
+  border-color: rgba(34, 197, 94, 0.5);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
+}
+
+body.theme-dark .indy-dice-stats .ids-roll-die--fail {
+  background: rgba(248, 113, 113, 0.22);
+  border-color: rgba(248, 113, 113, 0.45);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.3);
+}
+
+body.theme-dark .indy-dice-stats .ids-roll-result {
+  background: rgba(131, 184, 177, 0.18);
+  color: var(--ids-ink);
+}
+
+body.theme-dark .indy-dice-stats .ids-roll-result--crit {
+  background: rgba(34, 197, 94, 0.25);
+  color: #dcfce7;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.45);
+}
+
+body.theme-dark .indy-dice-stats .ids-roll-result--fail {
+  background: rgba(248, 113, 113, 0.25);
+  color: #fecaca;
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.35);
+}
+
+body.theme-dark .indy-dice-stats .ids-roll-advantage {
+  background: rgba(96, 191, 128, 0.22);
+  color: #dcfce7;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+body.theme-dark .indy-dice-stats .ids-roll-advantage--dis {
+  background: rgba(248, 113, 113, 0.2);
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+body.theme-dark .indy-dice-stats .ids-roll-die--adv {
+  background: rgba(160, 200, 174, 0.2);
+  border-color: rgba(130, 197, 155, 0.45);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.3);
 }
 
 body.theme-dark .indy-dice-stats .ids-card-header h2 {

@@ -11,10 +11,12 @@ import {
   markMessageProcessed,
   normalizeActionType,
   normalizeGlobalStats,
+  normalizeLatestRoll,
   resetUserStats,
   resolveUserIdFromMessage,
   resolveUserIdFromWorkflow,
   scheduleRefresh,
+  setLatestRoll,
   shouldTrackMessage,
   getUserStats
 } from "./ids-data.js";
@@ -38,6 +40,35 @@ Hooks.once("init", () => {
     config: true,
     type: Boolean,
     default: true
+  });
+
+  game.settings.register(MODULE_ID, "showLatestRoll", {
+    name: "Show Latest Roll",
+    hint: "Display the latest roll in the title area of the dashboard.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: () => refreshOpenDashboards({ forceThemeRefresh: false })
+  });
+
+  game.settings.register(MODULE_ID, "onlyMonitorD20", {
+    name: "Only Monitor d20",
+    hint: "Only update the title area when a roll includes a d20.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: () => refreshOpenDashboards({ forceThemeRefresh: false })
+  });
+
+  game.settings.register(MODULE_ID, "debugMidiQOL", {
+    name: "Debug Midi-QOL Roll Capture",
+    hint: "Log Midi-QOL roll sources and deduping details to the console.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: false
   });
 
   game.settings.register(MODULE_ID, "globalStats", {
@@ -199,6 +230,13 @@ Hooks.once("ready", async () => {
       scheduleRefresh();
       return;
     }
+    if (message.type === "latestRoll") {
+      if (message.senderId && message.senderId === game.user?.id) return;
+      const latest = normalizeLatestRoll(message.data);
+      if (!latest) return;
+      setLatestRoll(latest, { refresh: true });
+      return;
+    }
     if (message.type !== "roll") return;
     if (!game.user?.isGM) return;
     const payload = message.data;
@@ -341,6 +379,26 @@ Hooks.on("closeSettingsConfig", (app) => {
   );
 });
 
+Hooks.on("preCreateChatMessage", (message) => {
+  if (!game.settings.get(MODULE_ID, "enabled")) return;
+  if (game.user?.isGM) return;
+  if (!message || typeof message !== "object") return;
+  const existing = message.flags?.[MODULE_ID] || {};
+  if (existing?.trackedViaSocket) return;
+  try {
+    message.updateSource({
+      flags: {
+        [MODULE_ID]: {
+          ...existing,
+          trackedViaSocket: true
+        }
+      }
+    });
+  } catch (err) {
+    console.warn("Indy Dice Stats | Failed to tag message for socket tracking.", err);
+  }
+});
+
 Hooks.on("createChatMessage", async (message, options, userId) => {
   if (!shouldTrackMessage(message, userId)) return;
   const rolls = getRollsFromMessage(message);
@@ -389,7 +447,9 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
     if (state.processedMessages.has(messageId)) return;
   }
 
-  const rolls = collectWorkflowRolls(workflow);
+  const rolls = collectWorkflowRolls(workflow, {
+    debug: game.settings.get(MODULE_ID, "debugMidiQOL")
+  });
   if (!rolls.length) return;
   const payloads = buildPayloadsFromRolls(
     rolls,
