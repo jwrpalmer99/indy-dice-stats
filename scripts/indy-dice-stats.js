@@ -230,7 +230,6 @@ function bindFontPreview(app, html) {
     form = root;
   }
   if (!form) return;
-  if (app._idsFontPreviewBound) return;
   app._idsFontPreviewBound = true;
   const getValue = (name) => form.querySelector(`[name="${MODULE_ID}.${name}"]`)?.value;
   const updatePreview = () => {
@@ -305,7 +304,12 @@ Hooks.on("renderSettingsConfig", (app, html) => {
   bindFontPreview(app, html);
 });
 
-Hooks.on("closeSettingsConfig", () => {
+Hooks.on("closeSettingsConfig", (app) => {
+  if (app?._idsFontPreviewObserver) {
+    app._idsFontPreviewObserver.disconnect();
+    app._idsFontPreviewObserver = null;
+  }
+  app._idsFontPreviewBound = false;
   refreshOpenDashboards({ forceThemeRefresh: true });
   applyFontPreview(
     game.settings.get(MODULE_ID, "fontBody"),
