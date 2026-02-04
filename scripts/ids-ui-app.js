@@ -1178,6 +1178,15 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
       emptySpan.textContent = "No dice results";
       fragment.appendChild(emptySpan);
     } else {
+      if (segments.length === 1) {
+        const actionLabel = this._formatLatestRollAction(latestRoll);
+        if (actionLabel) {
+          const actionSpan = document.createElement("span");
+          actionSpan.className = "ids-roll-action";
+          actionSpan.textContent = actionLabel;
+          fragment.appendChild(actionSpan);
+        }
+      }
       const showSegmentLabels = segments.length > 1;
       for (const segment of segments) {
         const block = document.createElement("span");
