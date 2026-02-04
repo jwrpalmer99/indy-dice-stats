@@ -671,13 +671,13 @@ body.theme-dark .indy-dice-stats-reset select {
 .indy-dice-stats table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: calc(14px * var(--ids-font-body-scale, 1));
 }
 
 .indy-dice-stats th,
 .indy-dice-stats td {
   text-align: left;
-  padding: 10px 8px;
+  padding: calc(10px * var(--ids-font-body-scale, 1)) calc(8px * var(--ids-font-body-scale, 1));
   border-bottom: 1px solid rgba(15, 118, 110, 0.15);
 }
 
