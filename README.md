@@ -1,11 +1,13 @@
 # Indy Dice Stats
 
-A Foundry VTT (v13) module for D&D 5e 5.2.5 that tracks dice roll statistics per player, die type, action type, and save/check detail by session or in total. It supports both standard 5e rolls and Midi-QOL workflows and provides a polished dashboard with charts and comparison tools.
+A Foundry VTT (v13) module for D&D 5e 5.2.5 that tracks and monitors dice roll statistics per player, die type, action type, and save/check detail by session or in total. It supports both standard 5e rolls and Midi-QOL workflows and provides a polished dashboard with charts and comparison tools.
 
 <img width="911" height="862" alt="compare_stats" src="https://github.com/user-attachments/assets/c6aed73d-6fb9-4c80-99cd-fa4ce3a78987" />
-
+</br>
 <img width="764" height="615" alt="trend_compare" src="https://github.com/user-attachments/assets/9ba7b138-54a6-4313-a657-b5612c64b519" />
-
+</br>
+<img width="188" height="134" alt="monitor" src="https://github.com/user-attachments/assets/c170a247-0dfc-4ac1-94f7-7fc3c4401e51" />
+<img width="188" height="134" alt="monitor2" src="https://github.com/user-attachments/assets/852a1bfc-e49e-4295-8711-5774b6272a90" />
 
 Also works with pf2e but needs more testing, other systems MAY work if they use standard roll messages in chat.
 
@@ -16,11 +18,12 @@ Also works with pf2e but needs more testing, other systems MAY work if they use 
 - Streaks heatmap view (click the Distribution title to cycle views).
 - Supports standard D&D 5e rolls and Midi-QOL workflows.
 - Live "Latest Roll" monitor (optional, with d20-only and privacy-aware display).
-- Optional floating monitor window (scene control eye icon).
+- Floating monitor window (scene control telescope icon).
 - GM-only tools for reset, visibility, and fake data generation.
 - Compare selected players side-by-side.
 - Filters for action type, die type, session, and save/check detail.
 - Uses Foundry Application V2 UI with light/dark mode aware styling.
+- Change and size the fonts used to suit your game/screen.
 - Sockets ensure everyone is kept up to date as rolls happen.
 - Generate fake roll data in module settings so you can try it out!
 
