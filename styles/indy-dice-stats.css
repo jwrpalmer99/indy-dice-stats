@@ -15,6 +15,12 @@
   --ids-card: #fff9f0;
   --ids-border: rgba(15, 118, 110, 0.2);
   --ids-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  --ids-roll-chip-glow-default-rgb: 15, 118, 110;
+  --ids-roll-chip-glow-crit-rgb: 0, 250, 100;
+  --ids-roll-chip-glow-fail-rgb: 250, 29, 72;
+  --ids-roll-chip-glow-adv-rgb: 0, 200, 83;
+  --ids-roll-chip-glow-dis-rgb: 225, 29, 72;
+  --ids-roll-chip-glow-rgb: var(--ids-roll-chip-glow-default-rgb);
 }
 
 .indy-dice-stats-reset,
@@ -72,6 +78,67 @@
   gap: 6px;
 }
 
+.indy-dice-stats .ids-title[data-glow="crit"] {
+  --ids-roll-chip-glow-rgb: var(--ids-roll-chip-glow-crit-rgb);
+}
+
+.indy-dice-stats .ids-title[data-glow="fail"] {
+  --ids-roll-chip-glow-rgb: var(--ids-roll-chip-glow-fail-rgb);
+}
+
+.indy-dice-stats .ids-title[data-glow="adv"] {
+  --ids-roll-chip-glow-rgb: var(--ids-roll-chip-glow-adv-rgb);
+}
+
+.indy-dice-stats .ids-title[data-glow="dis"] {
+  --ids-roll-chip-glow-rgb: var(--ids-roll-chip-glow-dis-rgb);
+}
+
+.indy-dice-stats .ids-title__live--pulse .ids-eyebrow {
+  background-color: transparent;
+}
+
+.indy-dice-stats .ids-title__live--pulse .ids-eyebrow::after {
+  content: "";
+  position: absolute;
+  inset: -2px -6px;
+  border-radius: 999px;
+  background-color: rgba(var(--ids-roll-chip-glow-rgb), 0);
+  box-shadow: 0 0 0 0 rgba(var(--ids-roll-chip-glow-rgb), 0);
+  z-index: -1;
+  pointer-events: none;
+  animation: ids-title-pulse 1.8s ease-out;
+  will-change: background-color, box-shadow;
+}
+
+@keyframes ids-title-pulse {
+  0% {
+    background-color: rgba(var(--ids-roll-chip-glow-rgb), 0);
+    box-shadow: 0 0 0 0 rgba(var(--ids-roll-chip-glow-rgb), 0);
+  }
+  45% {
+    background-color: rgba(var(--ids-roll-chip-glow-rgb), 0.32);
+    box-shadow: 0 0 0 6px rgba(var(--ids-roll-chip-glow-rgb), 0.20);
+  }
+  70% {
+    background-color: rgba(var(--ids-roll-chip-glow-rgb), 0.16);
+    box-shadow: 0 0 0 3px rgba(var(--ids-roll-chip-glow-rgb), 0.1);
+  }
+  100% {
+    background-color: rgba(var(--ids-roll-chip-glow-rgb), 0);
+    box-shadow: 0 0 0 0 rgba(var(--ids-roll-chip-glow-rgb), 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .indy-dice-stats .ids-title__live--pulse .ids-eyebrow {
+    animation: none;
+  }
+  .indy-dice-stats .ids-title__live--pulse .ids-eyebrow::after {
+    animation: none;
+  }
+}
+
 .indy-dice-stats .ids-title h1 {
   font-family: var(--ids-font-title, "Fraunces", "Georgia", serif);
   font-size: calc(26px * var(--ids-font-title-scale, 1));
@@ -86,6 +153,11 @@
   font-size: calc(10px * var(--ids-font-body-scale, 1));
   color: var(--ids-muted);
   margin: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 0;
 }
 
 .indy-dice-stats .ids-live-roll-privacy {
@@ -619,6 +691,12 @@ body.theme-dark .indy-dice-stats {
   --ids-card: #111827;
   --ids-border: rgba(148, 163, 184, 0.25);
   --ids-shadow: 0 18px 40px rgba(2, 6, 23, 0.55);
+  --ids-roll-chip-glow-default-rgb: 20, 184, 166;
+  --ids-roll-chip-glow-crit-rgb: 0, 255, 140;
+  --ids-roll-chip-glow-fail-rgb: 248, 113, 113;
+  --ids-roll-chip-glow-adv-rgb: 0, 220, 120;
+  --ids-roll-chip-glow-dis-rgb: 248, 113, 113;
+  --ids-roll-chip-glow-rgb: var(--ids-roll-chip-glow-default-rgb);
 }
 
 body.theme-dark .indy-dice-stats-reset,

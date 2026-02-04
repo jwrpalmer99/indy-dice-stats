@@ -530,6 +530,8 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     }
     liveView.hidden = false;
     defaultView.hidden = true;
+    const glowKey = this._getLatestRollGlowKey(latestRoll);
+    this._triggerLatestRollGlow(container, liveView, glowKey);
 
     const userEl = liveView.querySelector("[data-live-roll-user]");
     if (userEl) {
@@ -681,6 +683,45 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     if (mode.includes("gm")) return "Private";
     if (mode.includes("self")) return "Self";
     return "";
+  }
+
+  _getLatestRollGlowKey(latestRoll) {
+    if (!latestRoll) return "default";
+    const diceEntries = this._getLatestRollDiceEntries(latestRoll);
+    const d20Entry = diceEntries.find((entry) => String(entry.dieKey).toLowerCase() === "d20");
+    const values = d20Entry?.values;
+    if (!Array.isArray(values) || values.length === 0) {
+      if (latestRoll.advantage === "disadvantage") return "dis";
+      if (latestRoll.advantage === "advantage") return "adv";
+      return "default";
+    }
+    let finalValue = values[values.length - 1];
+    if (latestRoll.advantage === "advantage") {
+      finalValue = Math.max(...values);
+    } else if (latestRoll.advantage === "disadvantage") {
+      finalValue = Math.min(...values);
+    }
+    if (finalValue === 20) return "crit";
+    if (finalValue === 1) return "fail";
+    if (latestRoll.advantage === "advantage") return "adv";
+    if (latestRoll.advantage === "disadvantage") return "dis";
+    return "default";
+  }
+
+  _triggerLatestRollGlow(container, liveView, glowKey = "default") {
+    const target = liveView || container;
+    if (!target) return;
+    if (container) container.dataset.glow = glowKey || "default";
+    target.classList.remove("ids-title__live--pulse");
+    void target.offsetWidth;
+    target.classList.add("ids-title__live--pulse");
+    if (this._latestRollGlowTimer) {
+      clearTimeout(this._latestRollGlowTimer);
+    }
+    this._latestRollGlowTimer = setTimeout(() => {
+      target.classList.remove("ids-title__live--pulse");
+      this._latestRollGlowTimer = null;
+    }, 1800);
   }
 
   _isLatestRollVisible(latestRoll) {
