@@ -241,6 +241,13 @@
   align-items: center;
 }
 
+.indy-dice-stats .ids-roll-block {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .indy-dice-stats .ids-roll-action {
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -292,6 +299,18 @@
   background: rgba(114, 147, 126, 0.18);
   border-color: rgba(118, 139, 126, 0.4);
   box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.28);
+}
+
+.indy-dice-stats .ids-roll-die--dis {
+  background: rgba(225, 29, 72, 0.14);
+  border-color: rgba(225, 29, 72, 0.5);
+  box-shadow: 0 0 0 1px rgba(225, 29, 72, 0.32);
+}
+
+.indy-dice-stats-monitor .ids-roll-die--dis {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: rgba(248, 113, 113, 0.5);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.35);
 }
 
 .indy-dice-stats .ids-roll-die--crit {
@@ -831,6 +850,12 @@ body.theme-dark .indy-dice-stats .ids-roll-die--adv {
   background: rgba(160, 200, 174, 0.2);
   border-color: rgba(130, 247, 155, 0.45);
   box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.3);
+}
+
+body.theme-dark .indy-dice-stats .ids-roll-die--dis {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: rgba(248, 113, 113, 0.5);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.35);
 }
 
 body.theme-dark .indy-dice-stats .ids-card-header h2 {

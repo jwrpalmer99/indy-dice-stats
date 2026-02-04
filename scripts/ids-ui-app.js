@@ -567,19 +567,54 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       fragment.appendChild(advSpan);
     }
 
-    const diceEntries = this._getLatestRollDiceEntries(latestRoll);
-    if (diceEntries.length === 0) {
+    const segments = this._getLatestRollSegments(latestRoll);
+    if (segments.length === 0) {
       const emptySpan = document.createElement("span");
       emptySpan.className = "ids-roll-empty";
       emptySpan.textContent = "No dice results";
       fragment.appendChild(emptySpan);
     } else {
-      for (const entry of diceEntries) {
-        fragment.appendChild(this._buildLatestRollDieNode(entry.dieKey, entry.values, latestRoll.advantage));
+      for (const segment of segments) {
+        const block = document.createElement("span");
+        block.className = "ids-roll-block";
+        if (segment.actionLabel) {
+          const actionSpan = document.createElement("span");
+          actionSpan.className = "ids-roll-action";
+          actionSpan.textContent = segment.actionLabel;
+          block.appendChild(actionSpan);
+        }
+        for (const entry of segment.diceEntries) {
+          block.appendChild(this._buildLatestRollDieNode(entry.dieKey, entry.values, segment.advantage));
+        }
+        fragment.appendChild(block);
       }
     }
 
     detailEl.appendChild(fragment);
+  }
+
+  _getLatestRollSegments(latestRoll) {
+    const segments = [];
+    if (!latestRoll) return segments;
+    const onlyMonitorD20 = game.settings.get(MODULE_ID, "onlyMonitorD20");
+    const baseSegments = Array.isArray(latestRoll.segments) && latestRoll.segments.length
+      ? latestRoll.segments
+      : [latestRoll];
+    const ignoreD20Filter = Array.isArray(latestRoll.segments) && latestRoll.segments.length > 1;
+    for (const segment of baseSegments) {
+      const diceEntries = this._getLatestRollDiceEntries(segment);
+      if (!diceEntries.length) continue;
+      if (onlyMonitorD20 && !ignoreD20Filter) {
+        const hasD20 = diceEntries.some((entry) => String(entry.dieKey).toLowerCase() === "d20");
+        if (!hasD20) continue;
+      }
+      segments.push({
+        actionLabel: this._formatLatestRollAction(segment),
+        diceEntries,
+        advantage: segment.advantage ?? latestRoll.advantage ?? null
+      });
+    }
+    return segments;
   }
 
   _formatLatestRollAction(latestRoll) {
@@ -656,6 +691,8 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
         wrapper.classList.add("ids-roll-die--adv");
       } else if (advantage === "disadvantage") {
         finalValue = Math.min(...values);
+        wrapper.classList.add("ids-roll-die--dis");
+        console.log("Indy Dice Stats | Disadvantage chip", { dieKey, values, advantage, wrapperClasses: wrapper.className });
       } else {
         finalValue = values[values.length - 1];
       }
@@ -1119,13 +1156,6 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
     detailEl.replaceChildren();
 
     const fragment = document.createDocumentFragment();
-    const actionLabel = this._formatLatestRollAction(latestRoll);
-    if (actionLabel) {
-      const actionSpan = document.createElement("span");
-      actionSpan.className = "ids-roll-action";
-      actionSpan.textContent = actionLabel;
-      fragment.appendChild(actionSpan);
-    }
     if (latestRoll.advantage) {
       const advSpan = document.createElement("span");
       const isDis = latestRoll.advantage === "disadvantage";
@@ -1134,19 +1164,53 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
       fragment.appendChild(advSpan);
     }
 
-    const diceEntries = this._getLatestRollDiceEntries(latestRoll);
-    if (diceEntries.length === 0) {
+    const segments = this._getLatestRollSegments(latestRoll);
+    if (segments.length === 0) {
       const emptySpan = document.createElement("span");
       emptySpan.className = "ids-roll-empty";
       emptySpan.textContent = "No dice results";
       fragment.appendChild(emptySpan);
     } else {
-      for (const entry of diceEntries) {
-        fragment.appendChild(this._buildLatestRollDieNode(entry.dieKey, entry.values, latestRoll.advantage));
+      for (const segment of segments) {
+        const block = document.createElement("span");
+        block.className = "ids-roll-block";
+        if (segment.actionLabel) {
+          const actionSpan = document.createElement("span");
+          actionSpan.className = "ids-roll-action";
+          actionSpan.textContent = segment.actionLabel;
+          block.appendChild(actionSpan);
+        }
+        for (const entry of segment.diceEntries) {
+          block.appendChild(this._buildLatestRollDieNode(entry.dieKey, entry.values, segment.advantage));
+        }
+        fragment.appendChild(block);
       }
     }
 
     detailEl.appendChild(fragment);
+  }
+
+  _getLatestRollSegments(latestRoll) {
+    const segments = [];
+    if (!latestRoll) return segments;
+    const onlyMonitorD20 = game.settings.get(MODULE_ID, "onlyMonitorD20");
+    const baseSegments = Array.isArray(latestRoll.segments) && latestRoll.segments.length
+      ? latestRoll.segments
+      : [latestRoll];
+    for (const segment of baseSegments) {
+      const diceEntries = this._getLatestRollDiceEntries(segment);
+      if (!diceEntries.length) continue;
+      if (onlyMonitorD20) {
+        const hasD20 = diceEntries.some((entry) => String(entry.dieKey).toLowerCase() === "d20");
+        if (!hasD20) continue;
+      }
+      segments.push({
+        actionLabel: this._formatLatestRollAction(segment),
+        diceEntries,
+        advantage: segment.advantage ?? latestRoll.advantage ?? null
+      });
+    }
+    return segments;
   }
 
   _formatLatestRollAction(latestRoll) {
@@ -1223,6 +1287,13 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
         wrapper.classList.add("ids-roll-die--adv");
       } else if (advantage === "disadvantage") {
         finalValue = Math.min(...values);
+        wrapper.classList.add("ids-roll-die--dis");
+        console.log("Indy Dice Stats | Disadvantage chip (monitor)", {
+          dieKey,
+          values,
+          advantage,
+          wrapperClasses: wrapper.className
+        });
       } else {
         finalValue = values[values.length - 1];
       }
@@ -1323,4 +1394,3 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
 }
 
 export { DiceStatsApp, DiceStatsMonitorApp };
-

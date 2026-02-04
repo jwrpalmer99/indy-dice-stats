@@ -113,6 +113,18 @@ function cloneLatestRollSequence(sequence) {
   return cloned;
 }
 
+function normalizeLatestRollSegment(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  return {
+    actionType: raw.actionType || "other",
+    detailKey: raw.detailKey || null,
+    advantage: raw.advantage === "disadvantage" ? "disadvantage"
+      : (raw.advantage === "advantage" ? "advantage" : null),
+    results: cloneLatestRollResults(raw.results),
+    sequence: cloneLatestRollSequence(raw.sequence)
+  };
+}
+
 export function normalizeLatestRoll(raw) {
   if (!raw || typeof raw !== "object") return null;
   const rollCount = Number(raw.rolls);
@@ -135,6 +147,9 @@ export function normalizeLatestRoll(raw) {
     rolls: Number.isFinite(rollCount) ? rollCount : 1,
     results: cloneLatestRollResults(raw.results),
     sequence: cloneLatestRollSequence(raw.sequence),
+    segments: Array.isArray(raw.segments)
+      ? raw.segments.map(normalizeLatestRollSegment).filter(Boolean)
+      : null,
     at: Number(raw.at) || Date.now()
   };
   if (!entry.userName && entry.userId) {
@@ -156,6 +171,82 @@ export function createLatestRollEntry(payload) {
     rolls: payload.rolls,
     results: payload.results,
     sequence: payload.sequence,
+    segments: [
+      {
+        actionType: payload.actionType,
+        detailKey: payload.detailKey || null,
+        advantage: payload.advantage || null,
+        results: payload.results,
+        sequence: payload.sequence
+      }
+    ],
+    at: Date.now()
+  });
+}
+
+function mergeLatestRollSequence(target, source) {
+  if (!source || typeof source !== "object") return;
+  for (const [dieKey, list] of Object.entries(source)) {
+    if (!Array.isArray(list) || list.length === 0) continue;
+    const targetList = target[dieKey] ??= [];
+    for (const value of list) {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric)) targetList.push(numeric);
+    }
+  }
+}
+
+export function createLatestRollEntryFromPayloads(payloads) {
+  if (!Array.isArray(payloads) || payloads.length === 0) return null;
+  const base = payloads[0] || {};
+  let actionType = base.actionType || null;
+  let detailKey = base.detailKey || null;
+  let advantage = base.advantage || null;
+  let userId = base.userId || null;
+  let userName = base.userName || null;
+  let visibility = base.visibility || null;
+  let rolls = 0;
+  const results = {};
+  const sequence = {};
+  const segments = [];
+  let mixedDetail = false;
+  let mixedAdvantage = false;
+
+  for (const payload of payloads) {
+    if (!payload || typeof payload !== "object") continue;
+    rolls += Number(payload.rolls) || 0;
+    mergeResultCounts(results, payload.results);
+    mergeLatestRollSequence(sequence, payload.sequence);
+    segments.push({
+      actionType: payload.actionType || "other",
+      detailKey: payload.detailKey || null,
+      advantage: payload.advantage || null,
+      results: payload.results,
+      sequence: payload.sequence
+    });
+    if (payload.userId && !userId) userId = payload.userId;
+    if (payload.userName && !userName) userName = payload.userName;
+    if (payload.visibility && !visibility) visibility = payload.visibility;
+    if (payload.actionType && !actionType) actionType = payload.actionType;
+    if ((payload.detailKey || null) !== detailKey) mixedDetail = true;
+    if ((payload.advantage || null) !== advantage) mixedAdvantage = true;
+  }
+
+  if (!actionType) actionType = "other";
+  if (mixedDetail) detailKey = null;
+  if (mixedAdvantage) advantage = null;
+
+  return normalizeLatestRoll({
+    userId,
+    userName,
+    actionType,
+    detailKey,
+    advantage,
+    visibility,
+    rolls,
+    results,
+    sequence,
+    segments,
     at: Date.now()
   });
 }
@@ -890,7 +981,7 @@ export function handleRollPayloadsLocally(payloads) {
     applyStreaksForSequence(dateStats, actionType, sequence, detailKey);
     applyStreaksForSequence(userDateStatsEntry, actionType, sequence, detailKey);
   }
-  const latestEntry = createLatestRollEntry(payloads[payloads.length - 1]);
+  const latestEntry = createLatestRollEntryFromPayloads(payloads);
   if (latestEntry) setLatestRoll(latestEntry, { broadcast: true });
   markGlobalStatsDirty();
   scheduleSave();

@@ -4,7 +4,7 @@ import {
   buildPayloadsFromRolls,
   collectWorkflowRolls,
   createGlobalStats,
-  createLatestRollEntry,
+  createLatestRollEntryFromPayloads,
   extractActionType,
   getGlobalStats,
   getRollsFromMessage,
@@ -112,6 +112,20 @@ Hooks.once("init", () => {
     config: true,
     type: Boolean,
     default: false
+  });
+
+  game.settings.register(MODULE_ID, "rollProcessingDelayMs", {
+    name: "Roll Processing Delay (ms)",
+    hint: "Delay processing chat and Midi-QOL rolls to allow dice animations to finish.",
+    scope: "world",
+    config: true,
+    type: Number,
+    range: {
+      min: 0,
+      max: 5000,
+      step: 100
+    },
+    default: 2000
   });
 
   game.settings.register(MODULE_ID, "globalStats", {
@@ -289,13 +303,23 @@ Hooks.once("ready", async () => {
       refreshLatestRolls();
       return;
     }
-    if (message.type !== "roll") return;
+    if (message.type !== "roll" && message.type !== "rolls") return;
     if (!game.user?.isGM) return;
-    const payload = message.data;
-    if (!payload?.results || !payload?.actionType || !payload?.userId) return;
-    if (payload.messageId && state.processedMessages.has(payload.messageId)) return;
-    handleRollPayloadsLocally([payload]);
-    if (payload.messageId) markMessageProcessed(payload.messageId);
+    const payloads = message.type === "rolls"
+      ? (Array.isArray(message.data) ? message.data : [])
+      : (message.data ? [message.data] : []);
+    if (!payloads.length) return;
+    const valid = payloads.filter((payload) => (
+      payload?.results && payload?.actionType && payload?.userId
+    ));
+    if (!valid.length) return;
+    for (const payload of valid) {
+      if (payload.messageId && state.processedMessages.has(payload.messageId)) return;
+    }
+    handleRollPayloadsLocally(valid);
+    for (const payload of valid) {
+      if (payload.messageId) markMessageProcessed(payload.messageId);
+    }
   });
 });
 
@@ -403,7 +427,25 @@ function bindFontPreview(app, html) {
   requestAnimationFrame(updatePreview);
 }
 
+function hasVisibleModuleSettings(html) {
+  const root = html?.[0] || html;
+  if (!root?.querySelectorAll) return false;
+  const inputs = Array.from(root.querySelectorAll(`[name^="${MODULE_ID}."]`));
+  if (!inputs.length) return false;
+  return inputs.some((input) => {
+    if (!input) return false;
+    if (input.offsetParent !== null) return true;
+    if (input.getClientRects && input.getClientRects().length) return true;
+    const details = input.closest("details");
+    if (details && !details.open) return false;
+    const category = input.closest(".settings-category, .category, .settings-section");
+    if (category?.classList?.contains("collapsed")) return false;
+    return false;
+  });
+}
+
 Hooks.on("renderSettingsConfig", (app, html) => {
+  if (!hasVisibleModuleSettings(html)) return;
   if (!app._idsFontChoicesApplied) {
     const bodySetting = game.settings.settings.get(`${MODULE_ID}.fontBody`);
     const titleSetting = game.settings.settings.get(`${MODULE_ID}.fontTitle`);
@@ -422,15 +464,17 @@ Hooks.on("closeSettingsConfig", (app) => {
     app._idsFontPreviewObserver.disconnect();
     app._idsFontPreviewObserver = null;
   }
-  app._idsFontPreviewBound = false;
-  refreshOpenDashboards({ forceThemeRefresh: true });
-  applyFontPreview(
-    game.settings.get(MODULE_ID, "fontBody"),
-    game.settings.get(MODULE_ID, "fontTitle"),
-    game.settings.get(MODULE_ID, "fontBodyScale"),
-    game.settings.get(MODULE_ID, "fontTitleScale"),
-    game.settings.get(MODULE_ID, "chartLegendScale")
-  );
+  if (app?._idsFontPreviewBound) {
+    app._idsFontPreviewBound = false;
+    refreshOpenDashboards({ forceThemeRefresh: true });
+    applyFontPreview(
+      game.settings.get(MODULE_ID, "fontBody"),
+      game.settings.get(MODULE_ID, "fontTitle"),
+      game.settings.get(MODULE_ID, "fontBodyScale"),
+      game.settings.get(MODULE_ID, "fontTitleScale"),
+      game.settings.get(MODULE_ID, "chartLegendScale")
+    );
+  }
 });
 
 Hooks.on("preCreateChatMessage", (message) => {
@@ -454,6 +498,13 @@ Hooks.on("preCreateChatMessage", (message) => {
 });
 
 Hooks.on("createChatMessage", async (message, options, userId) => {
+  const delayMs = Math.max(0, Number(game.settings.get(MODULE_ID, "rollProcessingDelayMs")) || 0);
+  setTimeout(() => {
+    handleChatMessageRoll(message, userId);
+  }, delayMs);
+});
+
+function handleChatMessageRoll(message, userId) {
   const recordSelfRolls = game.settings.get(MODULE_ID, "recordSelfRolls");
   const recordGmPrivateRolls = game.settings.get(MODULE_ID, "recordGmPrivateRolls");
   const recordGmBlindRolls = game.settings.get(MODULE_ID, "recordGmBlindRolls");
@@ -470,7 +521,7 @@ Hooks.on("createChatMessage", async (message, options, userId) => {
       const originUserId = resolveUserIdFromMessage(message, userId) || game.user?.id;
       const payloads = buildPayloadsFromRolls(rolls, actionType, originUserId, message, state.workflowMeta.get(message.id));
       if (payloads.length) {
-        const latestEntry = createLatestRollEntry(payloads[payloads.length - 1]);
+        const latestEntry = createLatestRollEntryFromPayloads(payloads);
         if (latestEntry) {
           setLatestRoll(latestEntry);
           refreshLatestRolls();
@@ -489,14 +540,19 @@ Hooks.on("createChatMessage", async (message, options, userId) => {
   if (game.user?.isGM) {
     handleRollPayloadsLocally(payloads);
   } else {
-    for (const payload of payloads) {
-      game.socket.emit(`module.${MODULE_ID}`, { type: "roll", data: payload });
-    }
+    game.socket.emit(`module.${MODULE_ID}`, { type: "rolls", data: payloads });
   }
   markMessageProcessed(message.id);
-});
+}
 
 Hooks.on("midi-qol.RollComplete", async (workflow) => {
+  const delayMs = Math.max(0, Number(game.settings.get(MODULE_ID, "rollProcessingDelayMs")) || 0);
+  setTimeout(() => {
+    handleMidiQolWorkflow(workflow);
+  }, delayMs);
+});
+
+async function handleMidiQolWorkflow(workflow) {
   if (!workflow || !game.settings.get(MODULE_ID, "enabled")) return;
   //if (game.system?.id !== "dnd5e") return;
 
@@ -555,7 +611,7 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
         workflow
       );
       if (payloads.length) {
-        const latestEntry = createLatestRollEntry(payloads[payloads.length - 1]);
+        const latestEntry = createLatestRollEntryFromPayloads(payloads);
         if (latestEntry) {
           setLatestRoll(latestEntry);
           refreshLatestRolls();
@@ -585,11 +641,9 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
   if (game.user?.isGM) {
     handleRollPayloadsLocally(payloads);
   } else {
-    for (const payload of payloads) {
-      game.socket.emit(`module.${MODULE_ID}`, { type: "roll", data: payload });
-    }
+    game.socket.emit(`module.${MODULE_ID}`, { type: "rolls", data: payloads });
   }
-});
+}
 
 Hooks.on("getSceneControlButtons", (controls) => {
   if (!controls) return;
