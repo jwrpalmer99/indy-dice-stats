@@ -17,6 +17,7 @@ import {
   normalizeGlobalStats,
   normalizeLatestRoll,
   resetUserStats,
+  resolveUserIdFromActor,
   resolveUserIdFromMessage,
   resolveUserIdFromWorkflow,
   scheduleRefresh,
@@ -82,6 +83,16 @@ Hooks.once("init", () => {
     config: true,
     type: Boolean,
     default: false,
+    onChange: () => refreshOpenDashboards({ forceThemeRefresh: false })
+  });
+
+  game.settings.register(MODULE_ID, "showActorNamesToPlayers", {
+    name: "Show Actor Names to Players",
+    hint: "Display actor names in the Latest Roll monitor for non-GM users.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
     onChange: () => refreshOpenDashboards({ forceThemeRefresh: false })
   });
 
@@ -641,6 +652,13 @@ async function handleMidiQolWorkflow(workflow) {
   const actionType = normalizeActionType(
     workflow?.rollType || workflow?.workflowType || workflow?.item?.system?.actionType
   );
+  const workflowActorId = workflow?.actor?.id || workflow?.actorId || null;
+  const workflowActorName = workflow?.actor?.name || null;
+  let workflowActorOwnerId = null;
+  if (workflowActorId) {
+    const actor = game.actors?.get?.(workflowActorId);
+    if (actor) workflowActorOwnerId = resolveUserIdFromActor(actor);
+  }
   const recordSelfRolls = game.settings.get(MODULE_ID, "recordSelfRolls");
   const recordGmPrivateRolls = game.settings.get(MODULE_ID, "recordGmPrivateRolls");
   const recordGmBlindRolls = game.settings.get(MODULE_ID, "recordGmBlindRolls");
@@ -663,7 +681,7 @@ async function handleMidiQolWorkflow(workflow) {
   const skipGmPrivate = !recordGmPrivateRolls && isGmPrivateRoll;
   const skipGmBlind = !recordGmBlindRolls && isGmBlindRoll;
   if (skipSelf || skipGmPrivate || skipGmBlind) {
-   if (game.user?.isGM && (message?.user?.id === game.user?.id  && isSelfRoll) || isGmPrivateRoll || isGmBlindRoll) {
+   if (game.user?.isGM && (workflowUserId === game.user?.id  && isSelfRoll) || isGmPrivateRoll || isGmBlindRoll) {
       const rolls = collectWorkflowRolls(workflow, {
         debug: game.settings.get(MODULE_ID, "debugMidiQOL")
       });
@@ -672,7 +690,12 @@ async function handleMidiQolWorkflow(workflow) {
         actionType,
         workflowUserId || game.user?.id,
         null,
-        workflow
+        {
+          ...workflow,
+          actorId: workflowActorId,
+          actorName: workflowActorName,
+          actorOwnerId: workflowActorOwnerId
+        }
       );
       if (payloads.length) {
         const latestEntry = createLatestRollEntryFromPayloads(payloads);
@@ -699,7 +722,12 @@ async function handleMidiQolWorkflow(workflow) {
     actionType,
     workflowUserId || game.user?.id,
     null,
-    workflow
+    {
+      ...workflow,
+      actorId: workflowActorId,
+      actorName: workflowActorName,
+      actorOwnerId: workflowActorOwnerId
+    }
   );
   if (!payloads.length) return;
   if (game.user?.isGM) {

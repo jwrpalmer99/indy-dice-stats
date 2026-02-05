@@ -63,8 +63,10 @@ Also works with pf2e but needs more testing, other systems MAY work if they use 
   - Record GM blind rolls (blindroll) in stats.
 - **Allow Players to See GM Stats** (World)
   - Include/exclude GM stats from non-GM views and All Players.
+- **Show Actor Names to Players** (World)
+  - Show the actor name beneath the user in the Latest Roll monitor for non-GM users.
 - **Roll Processing Delay (ms)** (World)
-  - Delay processing chat and Midi-QOL rolls to allow other worfklows to finish. When Dice So Nice is active, processing waits for its completion hook instead of this delay.
+  - Delay processing chat and Midi-QOL rolls to allow other workflows to finish. When Dice So Nice is active, processing waits for its completion hook instead of this delay.
 - **Show Latest Roll** (Client)
   - Show the "Latest Roll" monitor area in the title.
 - **Only Monitor d20** (Client)

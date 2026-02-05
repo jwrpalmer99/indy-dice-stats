@@ -144,6 +144,7 @@ export function normalizeLatestRoll(raw) {
   const entry = {
     userId: raw.userId || null,
     userName: raw.userName ? String(raw.userName) : null,
+    actorName: raw.actorName ? String(raw.actorName) : null,
     actionType: raw.actionType || "other",
     detailKey: raw.detailKey || null,
     advantage: raw.advantage === "disadvantage" ? "disadvantage"
@@ -177,6 +178,7 @@ export function createLatestRollEntry(payload) {
   return normalizeLatestRoll({
     userId: payload.userId,
     userName: payload.userName,
+    actorName: payload.actorName,
     actionType: payload.actionType,
     detailKey: payload.detailKey || null,
     advantage: payload.advantage || null,
@@ -217,6 +219,7 @@ export function createLatestRollEntryFromPayloads(payloads) {
   let advantage = base.advantage || null;
   let userId = base.userId || null;
   let userName = base.userName || null;
+  let actorName = base.actorName || null;
   let visibility = base.visibility || null;
   let rolls = 0;
   const results = {};
@@ -239,6 +242,7 @@ export function createLatestRollEntryFromPayloads(payloads) {
     });
     if (payload.userId && !userId) userId = payload.userId;
     if (payload.userName && !userName) userName = payload.userName;
+    if (payload.actorName && !actorName) actorName = payload.actorName;
     if (payload.visibility && !visibility) visibility = payload.visibility;
     if (payload.actionType && !actionType) actionType = payload.actionType;
     if ((payload.detailKey || null) !== detailKey) mixedDetail = true;
@@ -252,6 +256,7 @@ export function createLatestRollEntryFromPayloads(payloads) {
   return normalizeLatestRoll({
     userId,
     userName,
+    actorName,
     actionType,
     detailKey,
     advantage,
@@ -1284,6 +1289,22 @@ export function buildPayloadsFromRolls(rolls, fallbackAction, userId, message, w
   const payloadsByKey = {};
   const visibility = extractVisibilityFromMessage(message, userId);
   const messageId = message?.id || message?._id || null;
+  const actorId = workflowMeta?.actorId || message?.speaker?.actor || null;
+  const actorName = workflowMeta?.actorName || message?.speaker?.alias || null;
+  const actorOwnerId = workflowMeta?.actorOwnerId || null;
+  let actorDisplayName = null;
+  if (actorId) {
+    const actor = game.actors?.get?.(actorId);
+    const resolvedOwner = actorOwnerId || resolveUserIdFromActor(actor);
+    const user = userId ? game.users?.get?.(userId) : null;
+    const userCharacterId = user?.character?.id;
+    const isGmUser = !!user?.isGM;
+    const isNotOwner = resolvedOwner && resolvedOwner !== userId;
+    const isDifferentCharacter = !resolvedOwner && userCharacterId && userCharacterId !== actorId;
+    if (isGmUser || isNotOwner || isDifferentCharacter) {
+      actorDisplayName = actor?.name || actorName;
+    }
+  }
   const rollCache = new Map();
   for (const roll of rolls) {
     if (!roll) continue;
@@ -1296,6 +1317,7 @@ export function buildPayloadsFromRolls(rolls, fallbackAction, userId, message, w
     const payload = payloadsByKey[payloadKey] ??= buildPayloadFromRolls([], actionType, userId);
     payload.detailKey = detailKey;
     payload.advantage = mergeAdvantageState(payload.advantage, advantage);
+    if (!payload.actorName && actorDisplayName) payload.actorName = actorDisplayName;
     if (!payload.visibility && visibility) payload.visibility = visibility;
     if (!payload.messageId && messageId) payload.messageId = messageId;
     const results = buildResultCountsFromRoll(effectiveRoll);

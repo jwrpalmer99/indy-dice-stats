@@ -544,6 +544,20 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       userEl.textContent = userName;
     }
 
+    const actorEl = liveView.querySelector("[data-live-roll-actor]");
+    if (actorEl) {
+      const actorName = latestRoll.actorName;
+      const showActorNamesToPlayers = game.settings.get(MODULE_ID, "showActorNamesToPlayers");
+      const canShow = game.user?.isGM || showActorNamesToPlayers;
+      if (canShow && actorName && actorName !== latestRoll.userName) {
+        actorEl.textContent = `(${actorName})`;
+        actorEl.hidden = false;
+      } else {
+        actorEl.textContent = "";
+        actorEl.hidden = true;
+      }
+    }
+
     const privacyEl = liveView.querySelector("[data-live-roll-privacy]");
     if (privacyEl) {
       const privacyLabel = this._getLatestRollPrivacyLabel(latestRoll);
@@ -600,18 +614,12 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
   _getLatestRollSegments(latestRoll) {
     const segments = [];
     if (!latestRoll) return segments;
-    const onlyMonitorD20 = game.settings.get(MODULE_ID, "onlyMonitorD20");
     const baseSegments = Array.isArray(latestRoll.segments) && latestRoll.segments.length
       ? latestRoll.segments
       : [latestRoll];
-    const ignoreD20Filter = Array.isArray(latestRoll.segments) && latestRoll.segments.length > 1;
     for (const segment of baseSegments) {
       const diceEntries = this._getLatestRollDiceEntries(segment);
       if (!diceEntries.length) continue;
-      if (onlyMonitorD20 && !ignoreD20Filter) {
-        const hasD20 = diceEntries.some((entry) => String(entry.dieKey).toLowerCase() === "d20");
-        if (!hasD20) continue;
-      }
       segments.push({
         actionLabel: this._formatLatestRollAction(segment),
         diceEntries,
@@ -619,20 +627,6 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       });
     }
     return segments;
-  }
-
-  _hasAnyD20(latestRoll) {
-    const segments = Array.isArray(latestRoll?.segments) && latestRoll.segments.length
-      ? latestRoll.segments
-      : [latestRoll];
-    for (const segment of segments) {
-      if (!segment) continue;
-      const diceEntries = this._getLatestRollDiceEntries(segment);
-      if (diceEntries.some((entry) => String(entry.dieKey).toLowerCase() === "d20")) {
-        return true;
-      }
-    }
-    return false;
   }
 
   _hasAnyD20(latestRoll) {
@@ -1183,6 +1177,20 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
       userEl.textContent = userName;
     }
 
+    const actorEl = liveView.querySelector("[data-live-roll-actor]");
+    if (actorEl) {
+      const actorName = latestRoll.actorName;
+      const showActorNamesToPlayers = game.settings.get(MODULE_ID, "showActorNamesToPlayers");
+      const canShow = game.user?.isGM || showActorNamesToPlayers;
+      if (canShow && actorName && actorName !== latestRoll.userName) {
+        actorEl.textContent = `(${actorName})`;
+        actorEl.hidden = false;
+      } else {
+        actorEl.textContent = "";
+        actorEl.hidden = true;
+      }
+    }
+
     const privacyEl = liveView.querySelector("[data-live-roll-privacy]");
     if (privacyEl) {
       const privacyLabel = this._getLatestRollPrivacyLabel(latestRoll);
@@ -1276,17 +1284,12 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
   _getLatestRollSegments(latestRoll) {
     const segments = [];
     if (!latestRoll) return segments;
-    const onlyMonitorD20 = game.settings.get(MODULE_ID, "onlyMonitorD20");
     const baseSegments = Array.isArray(latestRoll.segments) && latestRoll.segments.length
       ? latestRoll.segments
       : [latestRoll];
     for (const segment of baseSegments) {
       const diceEntries = this._getLatestRollDiceEntries(segment);
       if (!diceEntries.length) continue;
-      if (onlyMonitorD20) {
-        const hasD20 = diceEntries.some((entry) => String(entry.dieKey).toLowerCase() === "d20");
-        if (!hasD20) continue;
-      }
       segments.push({
         actionLabel: this._formatLatestRollAction(segment),
         diceEntries,
