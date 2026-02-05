@@ -121,6 +121,10 @@
   align-items: center;
 }
 
+.indy-dice-stats .ids-header.ids-header--no-title {
+  grid-template-columns: 1fr;
+}
+
 .indy-dice-stats .ids-title {
   max-width: 220px;
   margin:6px;

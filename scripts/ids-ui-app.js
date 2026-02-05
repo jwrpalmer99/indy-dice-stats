@@ -514,11 +514,16 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     const liveView = container.querySelector("[data-live-roll-live]");
     if (!defaultView || !liveView) return;
 
-    if (!game.settings.get(MODULE_ID, "showLatestRoll")) {
-      liveView.hidden = true;
-      defaultView.hidden = false;
+    const showLatestRoll = game.settings.get(MODULE_ID, "showLatestRoll");
+    if (!showLatestRoll) {
+      container.hidden = true;
+      const header = container.closest(".ids-header");
+      if (header) header.classList.add("ids-header--no-title");
       return;
     }
+    container.hidden = false;
+    const header = container.closest(".ids-header");
+    if (header) header.classList.remove("ids-header--no-title");
 
     const onlyMonitorD20 = game.settings.get(MODULE_ID, "onlyMonitorD20");
     const candidateRoll = onlyMonitorD20 ? state.latestD20Roll : state.latestRoll;
@@ -1150,11 +1155,7 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
     const liveView = container.querySelector("[data-live-roll-live]");
     if (!defaultView || !liveView) return;
 
-    if (!game.settings.get(MODULE_ID, "showLatestRoll")) {
-      liveView.hidden = true;
-      defaultView.hidden = false;
-      return;
-    }
+    const showLatestRoll = game.settings.get(MODULE_ID, "showLatestRoll");
 
     const onlyMonitorD20 = game.settings.get(MODULE_ID, "onlyMonitorD20");
     const candidateRoll = onlyMonitorD20 ? state.latestD20Roll : state.latestRoll;
