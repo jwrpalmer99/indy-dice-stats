@@ -523,6 +523,9 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     const onlyMonitorD20 = game.settings.get(MODULE_ID, "onlyMonitorD20");
     const candidateRoll = onlyMonitorD20 ? state.latestD20Roll : state.latestRoll;
     const latestRoll = this._isLatestRollVisible(candidateRoll) ? candidateRoll : null;
+    if (onlyMonitorD20 && latestRoll && !this._hasAnyD20(latestRoll)) {
+      return;
+    }
     if (!latestRoll) {
       liveView.hidden = true;
       defaultView.hidden = false;
@@ -616,6 +619,34 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       });
     }
     return segments;
+  }
+
+  _hasAnyD20(latestRoll) {
+    const segments = Array.isArray(latestRoll?.segments) && latestRoll.segments.length
+      ? latestRoll.segments
+      : [latestRoll];
+    for (const segment of segments) {
+      if (!segment) continue;
+      const diceEntries = this._getLatestRollDiceEntries(segment);
+      if (diceEntries.some((entry) => String(entry.dieKey).toLowerCase() === "d20")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  _hasAnyD20(latestRoll) {
+    const segments = Array.isArray(latestRoll?.segments) && latestRoll.segments.length
+      ? latestRoll.segments
+      : [latestRoll];
+    for (const segment of segments) {
+      if (!segment) continue;
+      const diceEntries = this._getLatestRollDiceEntries(segment);
+      if (diceEntries.some((entry) => String(entry.dieKey).toLowerCase() === "d20")) {
+        return true;
+      }
+    }
+    return false;
   }
 
   _formatLatestRollAction(latestRoll) {
