@@ -6,8 +6,8 @@ A Foundry VTT (v13) module for D&D 5e 5.2.5 that tracks and monitors dice roll s
 </br>
 <img width="764" height="615" alt="trend_compare" src="https://github.com/user-attachments/assets/9ba7b138-54a6-4313-a657-b5612c64b519" />
 </br>
-<img width="188" height="134" alt="monitor" src="https://github.com/user-attachments/assets/c170a247-0dfc-4ac1-94f7-7fc3c4401e51" />
 <img width="188" height="134" alt="monitor2" src="https://github.com/user-attachments/assets/852a1bfc-e49e-4295-8711-5774b6272a90" />
+<img width="154" height="176" alt="monitor_attack" src="https://github.com/user-attachments/assets/7c8ff360-2633-490b-a762-6e8bce573b1a" />
 
 Also works with pf2e but needs more testing, other systems MAY work if they use standard roll messages in chat.
 
