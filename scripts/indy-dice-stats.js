@@ -18,6 +18,7 @@ import {
   normalizeLatestRoll,
   resetUserStats,
   resolveUserIdFromActor,
+  resolveMessageAuthorId,
   resolveUserIdFromMessage,
   resolveUserIdFromWorkflow,
   scheduleRefresh,
@@ -58,7 +59,7 @@ Hooks.once("init", () => {
     default: false,
     onChange: () => {
       if (isModuleRestrictedForCurrentUser()) closeOpenPlayerApps();
-      ui.controls?.render();
+      refreshSceneControls();
     }
   });
 
@@ -343,6 +344,15 @@ function closeOpenPlayerApps() {
   }
 }
 
+function refreshSceneControls() {
+  return ui.controls?.render?.({ reset: true });
+}
+
+function bringAppToFront(app) {
+  if (typeof app?.bringToFront === "function") return app.bringToFront();
+  return app?.bringToTop?.();
+}
+
 function resolveDiceSoNiceMessageId(messageId, data) {
   if (typeof messageId === "string" && messageId.length) return messageId;
   const candidate = data?.messageId || data?.message?._id || data?.message?.id || data?._id;
@@ -617,8 +627,9 @@ Hooks.on("preCreateChatMessage", (message) => {
 
 Hooks.on("createChatMessage", async (message, options, userId) => {
   if (!message || !isModuleActiveForCurrentUser()) return;
-  if (!game.user?.isGM && message.user?.id && game.user?.id && message.user.id !== game.user.id) return;
-  if (message.user?.id && message.user.id !== userId) return;
+  const authorId = resolveMessageAuthorId(message);
+  if (!game.user?.isGM && authorId && game.user?.id && authorId !== game.user.id) return;
+  if (authorId && authorId !== userId) return;
   if (state.processedMessages.has(message.id)) return;
   if (!Array.isArray(message.rolls) || message.rolls.length === 0) return;
   console.log("Indy Dice Stats | createChatMessage", {
@@ -643,7 +654,8 @@ function handleChatMessageRoll(message, userId) {
   const skipGmPrivate = !recordGmPrivateRolls && isGmPrivateRoll;
   const skipGmBlind = !recordGmBlindRolls && isGmBlindRoll;
   if (skipSelf || skipGmPrivate || skipGmBlind) {
-    if (game.user?.isGM && (message?.user?.id === game.user?.id  && isSelfRoll) || isGmPrivateRoll || isGmBlindRoll) {
+    const authorId = resolveMessageAuthorId(message);
+    if (game.user?.isGM && (authorId === game.user?.id && isSelfRoll) || isGmPrivateRoll || isGmBlindRoll) {
       const rolls = getRollsFromMessage(message);
       const actionType = extractActionType(message, rolls[0], state.workflowMeta.get(message.id));
       const originUserId = resolveUserIdFromMessage(message, userId) || game.user?.id;
@@ -815,6 +827,15 @@ Hooks.on("getSceneControlButtons", (controls) => {
     removeTool("indyDiceStatsMonitor");
     return;
   }
+  const getNextToolOrder = () => {
+    const tools = Array.isArray(tokenControls.tools)
+      ? tokenControls.tools
+      : Object.values(tokenControls.tools ?? {});
+    const orders = tools
+      .map((tool) => Number(tool?.order))
+      .filter((order) => Number.isFinite(order));
+    return orders.length ? Math.max(...orders) + 1 : tools.length;
+  };
   const addTool = (tool) => {
     if (Array.isArray(tokenControls.tools)) {
       const existingIndex = tokenControls.tools.findIndex((entry) => entry?.name === tool.name);
@@ -837,46 +858,40 @@ Hooks.on("getSceneControlButtons", (controls) => {
     }
     return null;
   };
+  const setMonitorOpen = (open) => {
+    const existing = findMonitorApp();
+    const isOpen = !!(existing && (existing.rendered || existing._state > 0));
+    if (open) {
+      if (isOpen) {
+        bringAppToFront(existing);
+      } else {
+        const app = new DiceStatsMonitorApp();
+        app.render(true).then(() => bringAppToFront(app));
+      }
+    } else if (isOpen) {
+      existing.close();
+    }
+  };
   const monitorApp = findMonitorApp();
   const monitorOpen = !!(monitorApp && (monitorApp.rendered || monitorApp._state > 0));
+  const dashboardOrder = getNextToolOrder();
   addTool({
     name: "indyDiceStats",
     title: "Indy Dice Stats",
     icon: "fas fa-chart-column",
+    order: dashboardOrder,
     button: true,
     visible: true,
-    onClick: () => new DiceStatsApp().render(true),
     onChange: () => new DiceStatsApp().render(true)
   });
   addTool({
     name: "indyDiceStatsMonitor",
     title: "Indy Dice Stats Monitor",
     icon: "fa-regular fa-telescope",
-    button: true,
+    order: dashboardOrder + 1,
     visible: true,
     toggle: true,
     active: monitorOpen,
-    onClick: () => {
-      const existing = findMonitorApp();
-      if (existing && (existing.rendered || existing._state > 0)) {
-        existing.close();
-      } else {
-        const app = new DiceStatsMonitorApp();
-        app.render(true);
-        app.bringToTop?.();
-      }
-      ui.controls?.render();
-    },
-    onChange: () => {
-      const existing = findMonitorApp();
-      if (existing && (existing.rendered || existing._state > 0)) {
-        existing.close();
-      } else {
-        const app = new DiceStatsMonitorApp();
-        app.render(true);
-        app.bringToTop?.();
-      }
-      ui.controls?.render();
-    }
+    onChange: (_event, active) => setMonitorOpen(active)
   });
 });

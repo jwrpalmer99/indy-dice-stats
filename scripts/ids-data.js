@@ -618,13 +618,7 @@ function extractVisibilityFromMessage(message, userId) {
     || message.flags?.core?.rollMode
     || message.flags?.dnd5e?.roll?.rollMode
     || null;
-  const authorId = message.user?.id
-    || message.author?.id
-    || message.author
-    || message.userId
-    || message.data?.user
-    || message.data?.userId
-    || null;
+  const authorId = resolveMessageAuthorId(message);
   return {
     rollMode: rollMode ? String(rollMode) : null,
     whisper,
@@ -632,6 +626,19 @@ function extractVisibilityFromMessage(message, userId) {
     authorId,
     userId: userId || null
   };
+}
+
+export function resolveMessageAuthorId(message) {
+  if (!message || typeof message !== "object") return null;
+  const author = message.author;
+  if (author && typeof author === "object" && author.id) return author.id;
+  if (typeof author === "string") return author;
+  return message.userId
+    || message.data?.user
+    || message.data?.userId
+    || message._source?.user
+    || message._source?.userId
+    || null;
 }
 
 export function isSelfRollMessage(message, userId) {
@@ -765,8 +772,9 @@ export function extractActionType(message, roll, workflowMeta) {
 
 export function shouldTrackMessage(message, userId) {
   if (!message || !game.settings.get(MODULE_ID, "enabled")) return false;
-  if (!game.user?.isGM && message.user?.id && game.user?.id && message.user.id !== game.user.id) return false;
-  if (message.user?.id && message.user.id !== userId) return false;
+  const authorId = resolveMessageAuthorId(message);
+  if (!game.user?.isGM && authorId && game.user?.id && authorId !== game.user.id) return false;
+  if (authorId && authorId !== userId) return false;
   if (state.processedMessages.has(message.id)) return false;
   if (!game.settings.get(MODULE_ID, "recordSelfRolls") && isSelfRollMessage(message, userId)) return false;
   if (!game.settings.get(MODULE_ID, "recordGmPrivateRolls") && isGmPrivateRollMessage(message, userId)) return false;
@@ -952,7 +960,8 @@ export function resolveUserIdFromActor(actor) {
 
 export function resolveUserIdFromMessage(message, fallbackUserId) {
   if (!message) return fallbackUserId || null;
-  if (message.user?.id) return message.user.id;
+  const authorId = resolveMessageAuthorId(message);
+  if (authorId) return authorId;
   const speakerActorId = message.speaker?.actor;
   if (speakerActorId) {
     const actor = game.actors?.get?.(speakerActorId);

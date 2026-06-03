@@ -3,6 +3,18 @@ import { generateFakeDataForUser, resetUserStats } from "./ids-data.js";
 import { refreshOpenDashboards } from "./ids-ui-shell.js";
 import { applyFontSettings } from "./ids-ui-helpers.js";
 
+async function confirmDialog({ title, content }) {
+  const dialogV2 = foundry.applications?.api?.DialogV2;
+  if (dialogV2?.confirm) {
+    return dialogV2.confirm({
+      modal: true,
+      window: { title },
+      content
+    });
+  }
+  return Dialog.confirm({ title, content });
+}
+
 class DiceStatsResetApp extends foundry.applications.api.HandlebarsApplicationMixin(
   foundry.applications.api.ApplicationV2
 ) {
@@ -52,7 +64,7 @@ class DiceStatsResetApp extends foundry.applications.api.HandlebarsApplicationMi
     const message = userId === "all"
       ? "This clears stats for every player. Continue?"
       : "This clears stored stats for the selected player. Continue?";
-    const confirmed = await Dialog.confirm({
+    const confirmed = await confirmDialog({
       title: "Reset Dice Stats",
       content: `<p>${message}</p>`
     });
@@ -172,7 +184,7 @@ class DiceStatsFakerApp extends foundry.applications.api.HandlebarsApplicationMi
     if (!userId) return;
     const user = game.users.get(userId);
     const name = user?.name || userId;
-    const confirmed = await Dialog.confirm({
+    const confirmed = await confirmDialog({
       title: "Generate Fake Data",
       content: `<p>Add fake dice stats for <strong>${name}</strong> across ${FAKE_SESSION_COUNT} sessions (${FAKE_ROLLS_MIN}-${FAKE_ROLLS_MAX} rolls each). Existing stats are not cleared. Continue?</p>`
     });

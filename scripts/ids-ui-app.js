@@ -1081,7 +1081,7 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
   async _onClose(options) {
     await super._onClose(options);
     this._storePosition();
-    ui.controls?.render();
+    ui.controls?.render?.({ reset: true });
   }
 
   _getStoredPosition() {
