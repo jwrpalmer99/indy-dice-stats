@@ -44,6 +44,11 @@ import {
   renderDistributionChart,
   renderTrendChart
 } from "./ids-ui-charts.js";
+
+function isModuleRestrictedForCurrentUser() {
+  return !game.user?.isGM && !!game.settings.get(MODULE_ID, "restrictToGm");
+}
+
 class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
   foundry.applications.api.ApplicationV2
 ) {
@@ -76,7 +81,13 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     this._windowObservers = null;
   }
 
+  render(options, ...args) {
+    if (isModuleRestrictedForCurrentUser()) return this;
+    return super.render(options, ...args);
+  }
+
   async _prepareContext() {
+    if (isModuleRestrictedForCurrentUser()) return {};
     const isGM = game.user?.isGM;
     const hidden = getHiddenUserIds();
     const users = game.users.contents
@@ -1045,6 +1056,11 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
     }
   };
 
+  render(options, ...args) {
+    if (isModuleRestrictedForCurrentUser()) return this;
+    return super.render(options, ...args);
+  }
+
   async _onRender(context, options) {
     await super._onRender(context, options);
     const scope = this.window?.content ?? this.element ?? document.getElementById(this.id);
@@ -1156,6 +1172,11 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
     if (!defaultView || !liveView) return;
 
     const showLatestRoll = game.settings.get(MODULE_ID, "showLatestRoll");
+    if (!showLatestRoll) {
+      liveView.hidden = true;
+      defaultView.hidden = false;
+      return;
+    }
 
     const onlyMonitorD20 = game.settings.get(MODULE_ID, "onlyMonitorD20");
     const candidateRoll = onlyMonitorD20 ? state.latestD20Roll : state.latestRoll;

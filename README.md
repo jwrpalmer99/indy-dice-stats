@@ -68,9 +68,9 @@ Also works with pf2e but needs more testing, other systems MAY work if they use 
 - **Roll Processing Delay (ms)** (World)
   - Delay processing chat and Midi-QOL rolls to allow other workflows to finish. When Dice So Nice is active, processing waits for its completion hook instead of this delay.
 - **Show Latest Roll** (Client)
-  - Show the "Latest Roll" monitor area in the title.
+  - Show the "Latest Roll" area in the dashboard title and floating monitor.
 - **Only Monitor d20** (Client)
-  - Only update the title monitor when a roll includes a d20.
+  - Only update the latest roll display when a roll includes a d20. Off by default, so d100 and other dice are shown.
 - **Debug Midi-QOL Roll Capture** (Client)
   - Log Midi-QOL roll capture details to the console.
 

@@ -49,6 +49,19 @@ Hooks.once("init", () => {
     default: true
   });
 
+  game.settings.register(MODULE_ID, "restrictToGm", {
+    name: "Restrict module to GM",
+    hint: "Totally disable Indy Dice Stats for non-GM users.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    onChange: () => {
+      if (isModuleRestrictedForCurrentUser()) closeOpenPlayerApps();
+      ui.controls?.render();
+    }
+  });
+
   game.settings.register(MODULE_ID, "recordSelfRolls", {
     name: "Record Self Rolls",
     hint: "Record self-only rolls (private) in the dice stats.",
@@ -98,22 +111,28 @@ Hooks.once("init", () => {
 
   game.settings.register(MODULE_ID, "showLatestRoll", {
     name: "Show Latest Roll",
-    hint: "Display the latest roll in the title area of the dashboard.",
+    hint: "Display the latest roll in the dashboard title and floating monitor.",
     scope: "client",
     config: true,
     type: Boolean,
     default: true,
-    onChange: () => refreshOpenDashboards({ forceThemeRefresh: false })
+    onChange: () => {
+      refreshOpenDashboards({ forceThemeRefresh: false });
+      refreshLatestRolls();
+    }
   });
 
   game.settings.register(MODULE_ID, "onlyMonitorD20", {
     name: "Only Monitor d20",
-    hint: "Only update the title area when a roll includes a d20.",
+    hint: "Only update the latest roll display when a roll includes a d20.",
     scope: "client",
     config: true,
     type: Boolean,
-    default: true,
-    onChange: () => refreshOpenDashboards({ forceThemeRefresh: false })
+    default: false,
+    onChange: () => {
+      refreshOpenDashboards({ forceThemeRefresh: false });
+      refreshLatestRolls();
+    }
   });
 
   game.settings.register(MODULE_ID, "debugMidiQOL", {
@@ -284,9 +303,18 @@ Hooks.once("init", () => {
   const module = game.modules.get(MODULE_ID);
   if (module) {
     module.api = {
-      open: () => new DiceStatsApp().render(true),
-      getUserStats,
-      resetUserStats
+      open: () => {
+        if (isModuleRestrictedForCurrentUser()) return null;
+        return new DiceStatsApp().render(true);
+      },
+      getUserStats: (...args) => {
+        if (isModuleRestrictedForCurrentUser()) return null;
+        return getUserStats(...args);
+      },
+      resetUserStats: (...args) => {
+        if (isModuleRestrictedForCurrentUser()) return null;
+        return resetUserStats(...args);
+      }
     };
   }
 });
@@ -298,6 +326,23 @@ const diceSoNiceState = {
   pendingHandlers: new Map()
 };
 
+function isModuleRestrictedForCurrentUser() {
+  return !game.user?.isGM && !!game.settings.get(MODULE_ID, "restrictToGm");
+}
+
+function isModuleActiveForCurrentUser() {
+  return !!game.settings.get(MODULE_ID, "enabled") && !isModuleRestrictedForCurrentUser();
+}
+
+function closeOpenPlayerApps() {
+  for (const app of foundry.applications?.instances?.values?.() ?? []) {
+    if (app instanceof DiceStatsApp || app instanceof DiceStatsMonitorApp) app.close?.();
+  }
+  for (const app of Object.values(ui.windows ?? {})) {
+    if (app instanceof DiceStatsApp || app instanceof DiceStatsMonitorApp) app.close?.();
+  }
+}
+
 function resolveDiceSoNiceMessageId(messageId, data) {
   if (typeof messageId === "string" && messageId.length) return messageId;
   const candidate = data?.messageId || data?.message?._id || data?.message?.id || data?._id;
@@ -305,6 +350,7 @@ function resolveDiceSoNiceMessageId(messageId, data) {
 }
 
 function scheduleRollProcessing(messageId, handler) {
+  if (!isModuleActiveForCurrentUser()) return;
   const delayMs = Math.max(0, Number(game.settings.get(MODULE_ID, "rollProcessingDelayMs")) || 0);
   const hasMessage = typeof messageId === "string" && messageId.length;
   if (hasMessage) {
@@ -320,9 +366,14 @@ function scheduleRollProcessing(messageId, handler) {
 }
 
 Hooks.once("ready", async () => {
+  if (isModuleRestrictedForCurrentUser()) {
+    closeOpenPlayerApps();
+    return;
+  }
   getGlobalStats();
   watchThemeChanges();
   game.socket.on(`module.${MODULE_ID}`, async (message) => {
+    if (isModuleRestrictedForCurrentUser()) return;
     if (!message || typeof message !== "object") return;
     if (message.type === "statsUpdated") {
       state.globalStats = normalizeGlobalStats(game.settings.get(MODULE_ID, "globalStats"));
@@ -363,6 +414,7 @@ Hooks.once("ready", async () => {
 });
 
 Hooks.on("diceSoNiceRollStart", (messageId, data) => {
+  if (!isModuleActiveForCurrentUser()) return;
   console.log("Indy Dice Stats | diceSoNiceRollStart", { messageId, data });
   diceSoNiceState.active = true;
   diceSoNiceState.lastStartAt = Date.now();
@@ -371,6 +423,7 @@ Hooks.on("diceSoNiceRollStart", (messageId, data) => {
 });
 
 Hooks.on("diceSoNiceRollComplete", (messageId, data) => {
+  if (!isModuleActiveForCurrentUser()) return;
   console.log("Indy Dice Stats | diceSoNiceRollComplete", { messageId, data });
   const resolved = resolveDiceSoNiceMessageId(messageId, data);
   if (resolved) {
@@ -508,6 +561,7 @@ function hasVisibleModuleSettings(html) {
 }
 
 Hooks.on("renderSettingsConfig", (app, html) => {
+  if (isModuleRestrictedForCurrentUser()) return;
   if (!hasVisibleModuleSettings(html)) return;
   if (!app._idsFontChoicesApplied) {
     const bodySetting = game.settings.settings.get(`${MODULE_ID}.fontBody`);
@@ -523,6 +577,7 @@ Hooks.on("renderSettingsConfig", (app, html) => {
 });
 
 Hooks.on("closeSettingsConfig", (app) => {
+  if (isModuleRestrictedForCurrentUser()) return;
   if (app?._idsFontPreviewObserver) {
     app._idsFontPreviewObserver.disconnect();
     app._idsFontPreviewObserver = null;
@@ -541,7 +596,7 @@ Hooks.on("closeSettingsConfig", (app) => {
 });
 
 Hooks.on("preCreateChatMessage", (message) => {
-  if (!game.settings.get(MODULE_ID, "enabled")) return;
+  if (!isModuleActiveForCurrentUser()) return;
   if (game.user?.isGM) return;
   if (!message || typeof message !== "object") return;
   const existing = message.flags?.[MODULE_ID] || {};
@@ -561,7 +616,7 @@ Hooks.on("preCreateChatMessage", (message) => {
 });
 
 Hooks.on("createChatMessage", async (message, options, userId) => {
-  if (!message || !game.settings.get(MODULE_ID, "enabled")) return;
+  if (!message || !isModuleActiveForCurrentUser()) return;
   if (!game.user?.isGM && message.user?.id && game.user?.id && message.user.id !== game.user.id) return;
   if (message.user?.id && message.user.id !== userId) return;
   if (state.processedMessages.has(message.id)) return;
@@ -577,6 +632,7 @@ Hooks.on("createChatMessage", async (message, options, userId) => {
 });
 
 function handleChatMessageRoll(message, userId) { 
+  if (!isModuleActiveForCurrentUser()) return;
   const recordSelfRolls = game.settings.get(MODULE_ID, "recordSelfRolls");
   const recordGmPrivateRolls = game.settings.get(MODULE_ID, "recordGmPrivateRolls");
   const recordGmBlindRolls = game.settings.get(MODULE_ID, "recordGmBlindRolls");
@@ -618,6 +674,7 @@ function handleChatMessageRoll(message, userId) {
 }
 
 Hooks.on("midi-qol.RollComplete", async (workflow) => {
+  if (!isModuleActiveForCurrentUser()) return;
   console.log("Indy Dice Stats | midi-qol.RollComplete", {
     messageId: workflow?.itemCardId || workflow?.chatMessageId || workflow?.messageId
   });
@@ -628,7 +685,7 @@ Hooks.on("midi-qol.RollComplete", async (workflow) => {
 });
 
 async function handleMidiQolWorkflow(workflow) {
-  if (!workflow || !game.settings.get(MODULE_ID, "enabled")) return;
+  if (!workflow || !isModuleActiveForCurrentUser()) return;
   //if (game.system?.id !== "dnd5e") return;
 
   // try {
@@ -743,6 +800,21 @@ Hooks.on("getSceneControlButtons", (controls) => {
     ? controls.find((control) => control?.name === "token")
     : controls.tokens ?? controls.token ?? controls.drawings;
   if (!tokenControls) return;
+  const removeTool = (name) => {
+    if (Array.isArray(tokenControls.tools)) {
+      const index = tokenControls.tools.findIndex((entry) => entry?.name === name);
+      if (index >= 0) tokenControls.tools.splice(index, 1);
+      return;
+    }
+    if (tokenControls.tools && typeof tokenControls.tools === "object") {
+      delete tokenControls.tools[name];
+    }
+  };
+  if (isModuleRestrictedForCurrentUser()) {
+    removeTool("indyDiceStats");
+    removeTool("indyDiceStatsMonitor");
+    return;
+  }
   const addTool = (tool) => {
     if (Array.isArray(tokenControls.tools)) {
       const existingIndex = tokenControls.tools.findIndex((entry) => entry?.name === tool.name);
