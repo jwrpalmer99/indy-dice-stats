@@ -1,4 +1,11 @@
-import { FAKE_ROLLS_MAX, FAKE_ROLLS_MIN, FAKE_SESSION_COUNT, MODULE_ID } from "./ids-constants.js";
+import {
+  FAKE_ROLLS_MAX,
+  FAKE_ROLLS_MIN,
+  FAKE_SESSION_COUNT,
+  MODULE_ID,
+  format,
+  localize
+} from "./ids-constants.js";
 import { generateFakeDataForUser, resetUserStats } from "./ids-data.js";
 import { refreshOpenDashboards } from "./ids-ui-shell.js";
 import { applyFontSettings } from "./ids-ui-helpers.js";
@@ -22,7 +29,7 @@ class DiceStatsResetApp extends foundry.applications.api.HandlebarsApplicationMi
     id: "indy-dice-stats-reset",
     classes: ["indy-dice-stats-reset"],
     window: {
-      title: "Reset Dice Stats",
+      title: "IDS.Reset.Title",
       icon: "fas fa-rotate-left",
       resizable: false
     },
@@ -61,11 +68,9 @@ class DiceStatsResetApp extends foundry.applications.api.HandlebarsApplicationMi
   async _onReset(scope) {
     if (!game.user?.isGM) return;
     const userId = scope.querySelector("[data-reset='user']")?.value || "all";
-    const message = userId === "all"
-      ? "This clears stats for every player. Continue?"
-      : "This clears stored stats for the selected player. Continue?";
+    const message = localize(userId === "all" ? "IDS.Reset.ConfirmAll" : "IDS.Reset.ConfirmPlayer");
     const confirmed = await confirmDialog({
-      title: "Reset Dice Stats",
+      title: localize("IDS.Reset.Title"),
       content: `<p>${message}</p>`
     });
     if (!confirmed) return;
@@ -87,7 +92,7 @@ class DiceStatsVisibilityApp extends foundry.applications.api.HandlebarsApplicat
     id: "indy-dice-stats-visibility",
     classes: ["indy-dice-stats-reset", "indy-dice-stats-visibility"],
     window: {
-      title: "Player Visibility",
+      title: "IDS.Visibility.Title",
       icon: "fas fa-user-slash",
       resizable: true
     },
@@ -127,8 +132,10 @@ class DiceStatsVisibilityApp extends foundry.applications.api.HandlebarsApplicat
 
   async _onSave(scope) {
     if (!game.user?.isGM) return;
-    const select = scope.querySelector("[data-visibility='users']");
-    const selected = Array.from(select?.selectedOptions || []).map((opt) => opt.value).filter(Boolean);
+    const selected = Array.from(
+      scope.querySelectorAll("[data-visibility='users'] input:checked"),
+      (input) => input.value
+    ).filter(Boolean);
     await game.settings.set(MODULE_ID, "hiddenPlayers", selected);
     refreshOpenDashboards();
     this.close();
@@ -142,7 +149,7 @@ class DiceStatsFakerApp extends foundry.applications.api.HandlebarsApplicationMi
     id: "indy-dice-stats-faker",
     classes: ["indy-dice-stats-reset", "indy-dice-stats-faker"],
     window: {
-      title: "Generate Fake Data",
+      title: "IDS.Faker.Title",
       icon: "fas fa-dice",
       resizable: false
     },
@@ -185,14 +192,19 @@ class DiceStatsFakerApp extends foundry.applications.api.HandlebarsApplicationMi
     const user = game.users.get(userId);
     const name = user?.name || userId;
     const confirmed = await confirmDialog({
-      title: "Generate Fake Data",
-      content: `<p>Add fake dice stats for <strong>${name}</strong> across ${FAKE_SESSION_COUNT} sessions (${FAKE_ROLLS_MIN}-${FAKE_ROLLS_MAX} rolls each). Existing stats are not cleared. Continue?</p>`
+      title: localize("IDS.Faker.Title"),
+      content: `<p>${format("IDS.Faker.Confirm", {
+        name: foundry.utils.escapeHTML(name),
+        sessions: FAKE_SESSION_COUNT,
+        min: FAKE_ROLLS_MIN,
+        max: FAKE_ROLLS_MAX
+      })}</p>`
     });
     if (!confirmed) return;
     const result = generateFakeDataForUser(userId);
     if (result) {
       ui.notifications?.info?.(
-        `Indy Dice Stats | Added ${result.rolls} fake rolls across ${result.sessions} sessions for ${name}.`
+        format("IDS.Faker.Complete", { rolls: result.rolls, sessions: result.sessions, name })
       );
     }
     this.close();

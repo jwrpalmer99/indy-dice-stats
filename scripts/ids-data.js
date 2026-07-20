@@ -617,6 +617,7 @@ function extractVisibilityFromMessage(message, userId) {
     || message.system?.rollMode
     || message.flags?.core?.rollMode
     || message.flags?.dnd5e?.roll?.rollMode
+    || message.flags?.pf2e?.context?.messageMode
     || null;
   const authorId = resolveMessageAuthorId(message);
   return {
@@ -755,9 +756,11 @@ export function extractActionType(message, roll, workflowMeta) {
   if (midiFlags?.workflowType) candidates.push(midiFlags.workflowType);
 
   const pf2eFlags = message?.flags?.pf2e;
-  if (pf2eFlags?.context?.type) candidates.push(pf2eFlags.context.type);
+  const pf2eType = pf2eFlags?.context?.type;
+  if (pf2eType && pf2eType !== "check") candidates.push(pf2eType);
+  if (Array.isArray(pf2eFlags?.context?.domains)) candidates.push(...pf2eFlags.context.domains);
+  if (pf2eType === "check") candidates.push(pf2eType);
   if (pf2eFlags?.context?.action) candidates.push(pf2eFlags.context.action);
-  if (pf2eFlags?.context?.origin?.type) candidates.push(pf2eFlags.context.origin.type);
 
   if (workflowMeta?.actionType) candidates.push(workflowMeta.actionType);
 
@@ -1063,12 +1066,18 @@ export function recomputeGlobalStats() {
   }
   return globalStats;
 }
+
+function getDiceTermsFromRoll(roll) {
+  const terms = Array.isArray(roll?.dice) && roll.dice.length ? roll.dice : roll?.terms;
+  return Array.isArray(terms)
+    ? terms.filter((term) => term && term.results && term.faces)
+    : [];
+}
+
 export function buildResultCountsFromRoll(roll) {
   const results = {};
   if (!roll) return results;
-  const diceTerms = Array.isArray(roll.terms)
-    ? roll.terms.filter((term) => term && term.results && term.faces)
-    : [];
+  const diceTerms = getDiceTermsFromRoll(roll);
   if (!diceTerms.length) return results;
   collectResultsFromDiceTerms(diceTerms, results);
   return results;
@@ -1106,9 +1115,7 @@ export function mergeResultCounts(target, source) {
 export function buildResultSequencesFromRoll(roll) {
   const sequences = {};
   if (!roll) return sequences;
-  const diceTerms = Array.isArray(roll.terms)
-    ? roll.terms.filter((term) => term && term.results && term.faces)
-    : [];
+  const diceTerms = getDiceTermsFromRoll(roll);
   if (!diceTerms.length) return sequences;
   collectSequencesFromDiceTerms(diceTerms, sequences);
   return sequences;
@@ -1232,14 +1239,15 @@ export function resolveRollDetailKey(roll, actionType, message, workflowMeta) {
   if (dnd5eFlags?.skillId) detailCandidates.push(dnd5eFlags.skillId);
   if (dnd5eFlags?.abilityId) detailCandidates.push(dnd5eFlags.abilityId);
   if (dnd5eFlags?.ability) detailCandidates.push(dnd5eFlags.ability);
-  if (rollOptions?.flavor) detailCandidates.push(rollOptions.flavor);
-  if (message?.flavor) detailCandidates.push(message.flavor);
 
   const pf2eContext = workflowMeta?.pf2eContext || message?.flags?.pf2e?.context;
   if (pf2eContext) {
+    if (message?.flags?.pf2e?.modifierName) detailCandidates.push(message.flags.pf2e.modifierName);
     const pf2eDetail = getPf2eDetailFromContext(pf2eContext, actionType);
     if (pf2eDetail) detailCandidates.push(pf2eDetail);
   }
+  if (rollOptions?.flavor) detailCandidates.push(rollOptions.flavor);
+  if (message?.flavor) detailCandidates.push(message.flavor);
 
   for (const candidate of detailCandidates) {
     if (!candidate) continue;
@@ -1283,12 +1291,13 @@ export function extractAdvantageState(roll, message) {
 
 export function getPf2eDetailFromContext(context, actionType) {
   if (!context) return null;
-  const check = context?.check || context?.type;
+  const check = context?.check;
+  const statistic = context?.statistic;
   if (actionType === "save") {
-    return check?.key || check?.slug || context?.save || context?.statistic;
+    return check?.key || check?.slug || context?.save || statistic?.slug || statistic || context?.identifier;
   }
   if (["check", "skill", "ability"].includes(actionType)) {
-    return check?.key || check?.slug || context?.skill || context?.statistic;
+    return check?.key || check?.slug || context?.skill || statistic?.slug || statistic || context?.identifier;
   }
   return null;
 }

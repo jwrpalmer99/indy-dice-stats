@@ -3,20 +3,48 @@ export const STATS_FLAG = "stats";
 export const CHART_JS_SRC = "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js";
 export const FLATTED_SRC = "https://cdn.jsdelivr.net/npm/flatted@3.3.3/min.js";
 
-export const ACTION_LABELS = {
-  attack: "Attack Rolls",
-  damage: "Damage Rolls",
-  save: "Saving Throw",
-  check: "Ability Check",
-  skill: "Skill Check",
-  ability: "Ability Check",
-  initiative: "Initiative",
-  deathsave: "Death Save",
-  tool: "Tool Check",
-  heal: "Healing",
-  spell: "Spell",
-  other: "Other"
+export const ACTION_LABEL_KEYS = {
+  attack: "IDS.Actions.Attack",
+  damage: "IDS.Actions.Damage",
+  save: "IDS.Actions.Save",
+  check: "IDS.Actions.Check",
+  skill: "IDS.Actions.Skill",
+  ability: "IDS.Actions.Ability",
+  initiative: "IDS.Actions.Initiative",
+  deathsave: "IDS.Actions.DeathSave",
+  tool: "IDS.Actions.Tool",
+  heal: "IDS.Actions.Heal",
+  spell: "IDS.Actions.Spell",
+  other: "IDS.Actions.Other"
 };
+
+export const ACTION_SHORT_LABEL_KEYS = {
+  attack: "IDS.ActionNames.Attack",
+  damage: "IDS.ActionNames.Damage",
+  save: "IDS.ActionNames.Save",
+  check: "IDS.ActionNames.Check",
+  skill: "IDS.ActionNames.Skill",
+  ability: "IDS.ActionNames.Ability",
+  initiative: "IDS.ActionNames.Initiative",
+  deathsave: "IDS.ActionNames.DeathSave",
+  tool: "IDS.ActionNames.Tool",
+  heal: "IDS.ActionNames.Heal",
+  spell: "IDS.ActionNames.Spell",
+  other: "IDS.ActionNames.Other"
+};
+
+export function localize(key) {
+  return game.i18n.localize(key);
+}
+
+export function format(key, data) {
+  return game.i18n.format(key, data);
+}
+
+export function getActionLabel(actionType, short = false) {
+  const key = (short ? ACTION_SHORT_LABEL_KEYS : ACTION_LABEL_KEYS)[actionType];
+  return key ? localize(key) : actionType;
+}
 
 export const ACTION_ORDER = [
   "attack",

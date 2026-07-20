@@ -969,9 +969,25 @@ body.theme-dark .indy-dice-stats td {
   gap: 20px;
 }
 
-.indy-dice-stats-visibility select[multiple] {
-  min-height: 280px;
-  height: 280px;
+.indy-dice-stats-visibility .ids-visibility__players {
+  display: grid;
+  gap: 8px;
+  max-height: 280px;
+  margin: 0;
+  padding: 12px;
+  overflow-y: auto;
+  border: 1px solid rgba(15, 118, 110, 0.25);
+  border-radius: 12px;
+}
+
+.indy-dice-stats-visibility .ids-visibility__players label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.indy-dice-stats-visibility .ids-visibility__players input {
+  margin: 0;
 }
 
 .indy-dice-stats-reset select {

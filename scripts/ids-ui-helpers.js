@@ -1,4 +1,4 @@
-import { ACTION_LABELS, ACTION_ORDER, MODULE_ID } from "./ids-constants.js";
+import { ACTION_ORDER, MODULE_ID, format, localize } from "./ids-constants.js";
 import {
   createEmptyStats,
   getDateKey,
@@ -260,11 +260,19 @@ function buildDetailOptions(actionFilter, scopedStats) {
 
 function formatDetailLabel(detailKey) {
   const [kind, value] = detailKey.split(":");
-  const label = value ? toPascalCase(value) : detailKey;
-  if (kind === "save") return `${label} Save`;
-  if (kind === "skill") return `${label} Skill`;
-  if (kind === "ability") return `${label} Check`;
-  return detailKey;
+  const slug = value || detailKey;
+  const configured = [
+    CONFIG.DND5E?.abilities?.[slug],
+    CONFIG.DND5E?.skills?.[slug],
+    CONFIG.PF2E?.saves?.[slug],
+    CONFIG.PF2E?.skills?.[slug]
+  ].find(Boolean);
+  const labelKey = typeof configured === "string" ? configured : configured?.label;
+  const label = labelKey ? localize(labelKey) : toPascalCase(slug);
+  if (kind === "save") return format("IDS.Detail.Save", { label });
+  if (kind === "skill") return format("IDS.Detail.Skill", { label });
+  if (kind === "ability") return format("IDS.Detail.Check", { label });
+  return label;
 }
 
 function toPascalCase(value) {
@@ -295,7 +303,7 @@ function setText(root, selector, value) {
 }
 
 function formatNumber(value) {
-  return new Intl.NumberFormat().format(value || 0);
+  return new Intl.NumberFormat(game.i18n.lang).format(value || 0);
 }
 
 function sortDiceKeys(a, b) {
@@ -337,6 +345,26 @@ function buildPalette(count) {
     colors.push(palette[i % palette.length]);
   }
   return colors;
+}
+
+function buildRainbowPalette(values, max) {
+  const stops = [
+    [225, 29, 72],
+    [249, 115, 22],
+    [250, 204, 21],
+    [22, 163, 74]
+  ];
+  const range = Math.max(Number(max) - 1, 1);
+  return values.map((value) => {
+    const position = Math.max(0, Math.min(1, (Number(value) - 1) / range)) * (stops.length - 1);
+    const start = Math.floor(position);
+    const end = Math.min(start + 1, stops.length - 1);
+    const mix = position - start;
+    const rgb = stops[start].map((value, channel) =>
+      Math.round(value + (stops[end][channel] - value) * mix)
+    );
+    return `rgb(${rgb.join(", ")})`;
+  });
 }
 
 function getChartGridColor() {
@@ -391,6 +419,7 @@ export {
   buildGradient,
   buildHeatmapColor,
   buildPalette,
+  buildRainbowPalette,
   buildScopedStats,
   buildStreakSource,
   computeDieSummary,

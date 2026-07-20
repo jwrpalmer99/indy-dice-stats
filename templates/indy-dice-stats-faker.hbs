@@ -1,12 +1,12 @@
 <section class="ids-reset ids-faker">
   <header class="ids-reset__header">
-    <h2>Generate Fake Data</h2>
-    <p>Create 12 sessions of sample rolls for testing.</p>
+    <h2>{{localize "IDS.Faker.Title"}}</h2>
+    <p>{{localize "IDS.Faker.Description"}}</p>
   </header>
 
   <div class="ids-reset__body">
     <label class="ids-control">
-      <span>Player</span>
+      <span>{{localize "IDS.Common.Player"}}</span>
       <select data-fake="user">
         {{#each users}}
           <option value="{{id}}" {{#if (eq id ../defaultUserId)}}selected{{/if}}>{{name}}</option>
@@ -15,13 +15,12 @@
     </label>
 
     <p class="ids-reset__note">
-      Generates 30-90 rolls per session across common 5e roll types, checks, and saves.
-      Existing stats are not cleared.
+      {{localize "IDS.Faker.Note"}}
     </p>
 
     <div class="ids-reset__actions">
       <button type="button" class="ids-button" data-action="generate-fake-data">
-        Generate Fake Data
+        {{localize "IDS.Faker.Title"}}
       </button>
     </div>
   </div>

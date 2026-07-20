@@ -1,6 +1,6 @@
 # Indy Dice Stats
 
-A Foundry VTT (v13) module for D&D 5e 5.2.5 that tracks and monitors dice roll statistics per player, die type, action type, and save/check detail by session or in total. It supports both standard 5e rolls and Midi-QOL workflows and provides a polished dashboard with charts and comparison tools.
+A Foundry VTT module for D&D 5e and Pathfinder 2e that tracks and monitors dice roll statistics per player, die type, action type, and save/check detail by session or in total. It also supports Midi-QOL workflows and provides a polished dashboard with charts and comparison tools.
 
 <img width="911" height="862" alt="compare_stats" src="https://github.com/user-attachments/assets/c6aed73d-6fb9-4c80-99cd-fa4ce3a78987" />
 </br>
@@ -9,14 +9,13 @@ A Foundry VTT (v13) module for D&D 5e 5.2.5 that tracks and monitors dice roll s
 <img width="188" height="134" alt="monitor2" src="https://github.com/user-attachments/assets/852a1bfc-e49e-4295-8711-5774b6272a90" />
 <img width="154" height="176" alt="monitor_attack" src="https://github.com/user-attachments/assets/7c8ff360-2633-490b-a762-6e8bce573b1a" />
 
-Also works with pf2e but needs more testing, other systems MAY work if they use standard roll messages in chat.
-
 ## Highlights
 
 - Tracks roll distributions by player, action type, die type, and session/date.
 - Trend view over time for the selected die (click the Distribution title).
 - Streaks heatmap view (click the Distribution title to cycle views).
-- Supports standard D&D 5e rolls and Midi-QOL workflows.
+- Supports standard D&D 5e, Pathfinder 2e, and Midi-QOL rolls.
+- Translation-ready UI and settings via `lang/en.json`.
 - Live "Latest Roll" monitor (optional, with d20-only and privacy-aware display).
 - Floating monitor window (scene control telescope icon), auto-resizes to show long rolls.
 - GM-only tools for reset, visibility, and fake data generation.
@@ -30,7 +29,7 @@ Also works with pf2e but needs more testing, other systems MAY work if they use 
 ## Requirements
 
 - Foundry VTT v13
-- D&D 5e system v5.2.5
+- D&D 5e or Pathfinder 2e
 - Optional: Midi-QOL (for workflow roll capture)
 
 ## Installation

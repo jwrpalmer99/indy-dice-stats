@@ -2,53 +2,53 @@
   <header class="ids-header">
     <div class="ids-title" data-live-roll>
       <div class="ids-title__default" data-live-roll-default>
-        <p class="ids-eyebrow">Indy Dice Stats</p>
-        <h1>Luck Ledger</h1>
-        <p class="ids-subtitle">Track roll distributions by player, action, and die type.</p>
+        <p class="ids-eyebrow">{{localize "IDS.App.Name"}}</p>
+        <h1>{{localize "IDS.App.LuckLedger"}}</h1>
+        <p class="ids-subtitle">{{localize "IDS.App.Subtitle"}}</p>
       </div>
       <div class="ids-title__live" data-live-roll-live hidden>
-        <p class="ids-eyebrow">Latest Roll <span class="ids-live-roll-privacy" data-live-roll-privacy></span></p>
-        <h1 class="ids-roll-user" data-live-roll-user>Awaiting Rolls</h1>
+        <p class="ids-eyebrow">{{localize "IDS.Latest.Title"}} <span class="ids-live-roll-privacy" data-live-roll-privacy></span></p>
+        <h1 class="ids-roll-user" data-live-roll-user>{{localize "IDS.Latest.Awaiting"}}</h1>
         <p class="ids-roll-actor" data-live-roll-actor hidden></p>
-        <p class="ids-subtitle ids-roll-details" data-live-roll-details>Listening for rolls...</p>
+        <p class="ids-subtitle ids-roll-details" data-live-roll-details>{{localize "IDS.Latest.Listening"}}</p>
       </div>
     </div>
     <div class="ids-controls">
       <label class="ids-control">
-        <span title="Choose which player's stats to view.">Player</span>
+        <span title="{{localize "IDS.Controls.PlayerHint"}}">{{localize "IDS.Common.Player"}}</span>
         <select data-filter="user">
-          <option value="all" {{#if (eq defaultUserId "all")}}selected{{/if}}>All Players</option>
+          <option value="all" {{#if (eq defaultUserId "all")}}selected{{/if}}>{{localize "IDS.Common.AllPlayers"}}</option>
           {{#each users}}
             <option value="{{id}}" {{#if (eq ../defaultUserId id)}}selected{{/if}}>{{name}}</option>
           {{/each}}
         </select>
       </label>
       <label class="ids-control ids-control--compare">
-        <span title="Select additional players to compare against the chosen player.">Compare Players</span>
+        <span title="{{localize "IDS.Controls.CompareHint"}}">{{localize "IDS.Controls.ComparePlayers"}}</span>
         <select data-filter="compare" multiple>
-          <option value="">None</option>
+          <option value="">{{localize "IDS.Common.None"}}</option>
           {{#each users}}
             <option value="{{id}}">{{name}}</option>
           {{/each}}
         </select>
       </label>
       <label class="ids-control">
-        <span title="Filter stats by roll action type.">Action</span>
+        <span title="{{localize "IDS.Controls.ActionHint"}}">{{localize "IDS.Common.Action"}}</span>
         <select data-filter="action">
-          <option value="all" {{#if (eq defaultAction "all")}}selected{{/if}}>All Actions</option>
+          <option value="all" {{#if (eq defaultAction "all")}}selected{{/if}}>{{localize "IDS.Common.AllActions"}}</option>
           {{#each actionOptions}}
             <option value="{{key}}">{{label}}</option>
           {{/each}}
         </select>
       </label>
       <label class="ids-control">
-        <span title="Filter saving throws, ability checks, or skill checks.">Save/Check</span>
+        <span title="{{localize "IDS.Controls.DetailHint"}}">{{localize "IDS.Controls.SaveCheck"}}</span>
         <select data-filter="detail">
-          <option value="all">All</option>
+          <option value="all">{{localize "IDS.Common.All"}}</option>
         </select>
       </label>
       <label class="ids-control ids-control--die">
-        <span title="Filter stats by die type (d4, d6, d20, etc.).">Die</span>
+        <span title="{{localize "IDS.Controls.DieHint"}}">{{localize "IDS.Common.Die"}}</span>
         <select data-filter="die">
           {{#each diceOptions}}
             <option value="{{this}}" {{#if (eq ../defaultDie this)}}selected{{/if}}>{{this}}</option>
@@ -56,10 +56,10 @@
         </select>
       </label>
       <label class="ids-control">
-        <span title="Filter stats to a specific day or all time.">Session</span>
+        <span title="{{localize "IDS.Controls.SessionHint"}}">{{localize "IDS.Common.Session"}}</span>
         <select data-filter="session">
-          <option value="all">All Time</option>
-          <option value="today">Today</option>
+          <option value="all">{{localize "IDS.Common.AllTime"}}</option>
+          <option value="today">{{localize "IDS.Common.Today"}}</option>
         </select>
       </label>
     </div>
@@ -67,85 +67,85 @@
 
   <section class="ids-summary">
     <div class="ids-card ids-card--stat">
-      <p class="ids-stat-label">Total Dice</p>
+      <p class="ids-stat-label">{{localize "IDS.Summary.TotalDice"}}</p>
       <p class="ids-stat-value" data-stat="total-dice">0</p>
-      <p class="ids-stat-foot">All recorded dice results</p>
+      <p class="ids-stat-foot">{{localize "IDS.Summary.TotalDiceHint"}}</p>
     </div>
     <div class="ids-card ids-card--stat">
-      <p class="ids-stat-label" data-stat-label="filtered-dice">Filtered Dice</p>
+      <p class="ids-stat-label" data-stat-label="filtered-dice">{{localize "IDS.Summary.FilteredDice"}}</p>
       <p class="ids-stat-value" data-stat="filtered-dice">0</p>
-      <p class="ids-stat-foot">Count for the selected die</p>
+      <p class="ids-stat-foot">{{localize "IDS.Summary.FilteredDiceHint"}}</p>
     </div>
     <div class="ids-card ids-card--stat">
-      <p class="ids-stat-label">Average (Selected Die)</p>
+      <p class="ids-stat-label">{{localize "IDS.Summary.Average"}}</p>
       <p class="ids-stat-value" data-stat="die-average">-</p>
-      <p class="ids-stat-foot">Mean result for current die</p>
+      <p class="ids-stat-foot">{{localize "IDS.Summary.AverageHint"}}</p>
     </div>
     <div class="ids-card ids-card--stat">
-      <p class="ids-stat-label" data-stat-label="top-action">Top Action</p>
+      <p class="ids-stat-label" data-stat-label="top-action">{{localize "IDS.Summary.TopAction"}}</p>
       <p class="ids-stat-value" data-stat="top-action">-</p>
-      <p class="ids-stat-foot">Most rolled category</p>
+      <p class="ids-stat-foot">{{localize "IDS.Summary.TopActionHint"}}</p>
     </div>
   </section>
 
   <section class="ids-charts">
     <div class="ids-card ids-chart-card">
       <div class="ids-chart-header">
-        <p class="ids-chart-title" data-chart-title="distribution">Distribution</p>
+        <p class="ids-chart-title" data-chart-title="distribution">{{localize "IDS.Charts.Distribution"}}</p>
         <div class="ids-chart-controls">
-          <label class="ids-toggle" data-toggle="normalize" title="Normalize comparisons by percent instead of raw counts.">
+          <label class="ids-toggle" data-toggle="normalize" title="{{localize "IDS.Charts.NormalizeHint"}}">
             <input class="ids-toggle__input" type="checkbox" data-filter="normalize" />
             <span class="ids-toggle__track">
               <span class="ids-toggle__thumb"></span>
             </span>
-            <span class="ids-toggle__label">Normalize</span>
+            <span class="ids-toggle__label">{{localize "IDS.Charts.Normalize"}}</span>
           </label>
-          <label class="ids-toggle is-hidden" data-toggle="candles" title="Show candlestick ranges on the trend view.">
+          <label class="ids-toggle is-hidden" data-toggle="candles" title="{{localize "IDS.Charts.CandlesHint"}}">
             <input class="ids-toggle__input" type="checkbox" data-filter="candles" />
             <span class="ids-toggle__track">
               <span class="ids-toggle__thumb"></span>
             </span>
-            <span class="ids-toggle__label">Candles</span>
+            <span class="ids-toggle__label">{{localize "IDS.Charts.Candles"}}</span>
           </label>
-          <label class="ids-toggle is-hidden" data-toggle="streaks" title="Toggle between min/max streak heatmaps.">
+          <label class="ids-toggle is-hidden" data-toggle="streaks" title="{{localize "IDS.Charts.StreakHint"}}">
             <input class="ids-toggle__input" type="checkbox" data-filter="streakType" />
             <span class="ids-toggle__track">
               <span class="ids-toggle__thumb"></span>
             </span>
-            <span class="ids-toggle__label">Max Streak</span>
+            <span class="ids-toggle__label">{{localize "IDS.Charts.MaxStreak"}}</span>
           </label>
         </div>
       </div>
-      <canvas data-chart="distribution" aria-label="Distribution chart"></canvas>
+      <canvas data-chart="distribution" aria-label="{{localize "IDS.Charts.DistributionAria"}}"></canvas>
       <div class="ids-heatmap" data-chart="streaks" hidden></div>
     </div>
     <div class="ids-card ids-chart-card">
-      <canvas data-chart="breakdown" aria-label="Breakdown chart"></canvas>
+      <canvas data-chart="breakdown" aria-label="{{localize "IDS.Charts.BreakdownAria"}}"></canvas>
     </div>
   </section>
 
   <section class="ids-table">
     <div class="ids-card">
       <div class="ids-card-header">
-        <h2>Die Summary</h2>
-        <p>Selected player stats.</p>
+        <h2>{{localize "IDS.Table.DieSummary"}}</h2>
+        <p>{{localize "IDS.Table.DieSummaryHint"}}</p>
       </div>
       <div class="ids-table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Die</th>
-              <th>Count</th>
-              <th>Average</th>
-              <th>Min</th>
-              <th>Max</th>
-              <th>Min Streak</th>
-              <th>Max Streak</th>
+              <th>{{localize "IDS.Common.Die"}}</th>
+              <th>{{localize "IDS.Common.Count"}}</th>
+              <th>{{localize "IDS.Common.Average"}}</th>
+              <th>{{localize "IDS.Common.Min"}}</th>
+              <th>{{localize "IDS.Common.Max"}}</th>
+              <th>{{localize "IDS.Table.MinStreak"}}</th>
+              <th>{{localize "IDS.Table.MaxStreak"}}</th>
             </tr>
           </thead>
           <tbody data-table="die-summary">
             <tr>
-              <td colspan="5">No rolls captured yet.</td>
+              <td colspan="7">{{localize "IDS.Table.NoRolls"}}</td>
             </tr>
           </tbody>
         </table>
@@ -156,22 +156,22 @@
   <section class="ids-compare" data-compare hidden>
     <div class="ids-card">
       <div class="ids-card-header">
-        <h2>Player Comparison</h2>
-        <p>Totals by player.</p>
+        <h2>{{localize "IDS.Table.PlayerComparison"}}</h2>
+        <p>{{localize "IDS.Table.PlayerComparisonHint"}}</p>
       </div>
       <div class="ids-table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Player</th>
-              <th>Total Rolls</th>
-              <th>Total Dice</th>
-              <th>Average (Selected Die)</th>
+              <th>{{localize "IDS.Common.Player"}}</th>
+              <th>{{localize "IDS.Table.TotalRolls"}}</th>
+              <th>{{localize "IDS.Summary.TotalDice"}}</th>
+              <th>{{localize "IDS.Summary.Average"}}</th>
             </tr>
           </thead>
           <tbody data-table="compare-summary">
             <tr>
-              <td colspan="4">Select two or more players to compare.</td>
+              <td colspan="4">{{localize "IDS.Table.SelectPlayers"}}</td>
             </tr>
           </tbody>
         </table>

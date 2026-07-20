@@ -1,7 +1,7 @@
 {
   "id": "indy-dice-stats",
   "title": "Indy Dice Stats",
-  "description": "A module to track and visualise dice stats in 5e.",
+  "description": "Track and visualise dice statistics in D&D 5e and Pathfinder 2e.",
   "version": "#{VERSION}#",
   "authors": [{ "name": "PinguTwo" }],
   "compatibility": { "minimum": "13", "verified": "14" },
@@ -10,6 +10,13 @@
   "manifest": "#{MANIFEST}#",
   "download": "#{DOWNLOAD}#",
   "esmodules": ["scripts/indy-dice-stats.js"],
-  "styles": ["styles/indy-dice-stats.css"]
+  "styles": ["styles/indy-dice-stats.css"],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ]
 }
 

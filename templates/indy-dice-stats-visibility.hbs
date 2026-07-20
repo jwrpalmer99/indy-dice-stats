@@ -1,22 +1,24 @@
 <section class="ids-reset ids-visibility">
   <header class="ids-reset__header">
-    <h2>Player Visibility</h2>
-    <p>Select players to hide from the dice stats dashboard.</p>
+    <h2>{{localize "IDS.Visibility.Title"}}</h2>
+    <p>{{localize "IDS.Visibility.Description"}}</p>
   </header>
 
   <div class="ids-reset__body">
-    <label class="ids-control ids-control--compare">
-      <span>Hidden Players</span>
-      <select data-visibility="users" multiple>
-        {{#each users}}
-          <option value="{{id}}" {{#if hidden}}selected{{/if}}>{{name}}</option>
-        {{/each}}
-      </select>
-    </label>
+    <fieldset class="ids-visibility__players" data-visibility="users">
+      <legend>{{localize "IDS.Visibility.HiddenPlayers"}}</legend>
+      {{#each users}}
+        <label>
+          <input type="checkbox" value="{{id}}" {{#if hidden}}checked{{/if}}>
+          <span>{{name}}</span>
+        </label>
+      {{/each}}
+    </fieldset>
+    <p class="ids-reset__note">{{localize "IDS.Visibility.ReshowHint"}}</p>
 
     <div class="ids-reset__actions">
       <button type="button" class="ids-button" data-action="save-visibility">
-        Save
+        {{localize "IDS.Common.Save"}}
       </button>
     </div>
   </div>

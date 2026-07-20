@@ -1,4 +1,4 @@
-import { MODULE_ID } from "./ids-constants.js";
+import { MODULE_ID, localize } from "./ids-constants.js";
 import { state } from "./ids-state.js";
 import {
   buildPayloadsFromRolls,
@@ -42,8 +42,8 @@ Hooks.once("init", () => {
     Handlebars.registerHelper("eq", (a, b) => a === b);
   }
   game.settings.register(MODULE_ID, "enabled", {
-    name: "Enable dice tracking",
-    hint: "Track dice rolls for DnD 5e and Midi-QOL workflows.",
+    name: localize("IDS.Settings.Enabled.Name"),
+    hint: localize("IDS.Settings.Enabled.Hint"),
     scope: "world",
     config: true,
     type: Boolean,
@@ -51,8 +51,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "restrictToGm", {
-    name: "Restrict module to GM",
-    hint: "Totally disable Indy Dice Stats for non-GM users.",
+    name: localize("IDS.Settings.RestrictToGm.Name"),
+    hint: localize("IDS.Settings.RestrictToGm.Hint"),
     scope: "world",
     config: true,
     type: Boolean,
@@ -64,8 +64,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "recordSelfRolls", {
-    name: "Record Self Rolls",
-    hint: "Record self-only rolls (private) in the dice stats.",
+    name: localize("IDS.Settings.RecordSelf.Name"),
+    hint: localize("IDS.Settings.RecordSelf.Hint"),
     scope: "world",
     config: true,
     type: Boolean,
@@ -73,8 +73,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "recordGmPrivateRolls", {
-    name: "Record Private GM Rolls",
-    hint: "Record GM private rolls (gmroll) in the dice stats.",
+    name: localize("IDS.Settings.RecordGmPrivate.Name"),
+    hint: localize("IDS.Settings.RecordGmPrivate.Hint"),
     scope: "world",
     config: true,
     type: Boolean,
@@ -82,8 +82,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "recordGmBlindRolls", {
-    name: "Record Blind GM Rolls",
-    hint: "Record GM blind rolls (blindroll) in the dice stats.",
+    name: localize("IDS.Settings.RecordGmBlind.Name"),
+    hint: localize("IDS.Settings.RecordGmBlind.Hint"),
     scope: "world",
     config: true,
     type: Boolean,
@@ -91,8 +91,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "allowPlayersSeeGmStats", {
-    name: "Allow Players to See GM Stats",
-    hint: "Allow non-GM users to include GM stats in player lists and All Players views.",
+    name: localize("IDS.Settings.AllowGmStats.Name"),
+    hint: localize("IDS.Settings.AllowGmStats.Hint"),
     scope: "world",
     config: true,
     type: Boolean,
@@ -101,8 +101,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "showActorNamesToPlayers", {
-    name: "Show Actor Names to Players",
-    hint: "Display actor names in the Latest Roll monitor for non-GM users.",
+    name: localize("IDS.Settings.ShowActorNames.Name"),
+    hint: localize("IDS.Settings.ShowActorNames.Hint"),
     scope: "world",
     config: true,
     type: Boolean,
@@ -111,8 +111,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "showLatestRoll", {
-    name: "Show Latest Roll",
-    hint: "Display the latest roll in the dashboard title and floating monitor.",
+    name: localize("IDS.Settings.ShowLatest.Name"),
+    hint: localize("IDS.Settings.ShowLatest.Hint"),
     scope: "client",
     config: true,
     type: Boolean,
@@ -124,8 +124,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "onlyMonitorD20", {
-    name: "Only Monitor d20",
-    hint: "Only update the latest roll display when a roll includes a d20.",
+    name: localize("IDS.Settings.OnlyD20.Name"),
+    hint: localize("IDS.Settings.OnlyD20.Hint"),
     scope: "client",
     config: true,
     type: Boolean,
@@ -137,8 +137,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "debugMidiQOL", {
-    name: "Debug Midi-QOL Roll Capture",
-    hint: "Log Midi-QOL roll sources and deduping details to the console.",
+    name: localize("IDS.Settings.DebugMidi.Name"),
+    hint: localize("IDS.Settings.DebugMidi.Hint"),
     scope: "client",
     config: true,
     type: Boolean,
@@ -146,8 +146,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "rollProcessingDelayMs", {
-    name: "Roll Processing Delay (ms)",
-    hint: "Delay processing chat and Midi-QOL rolls. When Dice So Nice is active, processing waits for its completion hook instead of this delay.",
+    name: localize("IDS.Settings.RollDelay.Name"),
+    hint: localize("IDS.Settings.RollDelay.Hint"),
     scope: "world",
     config: true,
     type: Number,
@@ -160,7 +160,7 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "globalStats", {
-    name: "Global Dice Stats",
+    name: localize("IDS.Settings.GlobalStats"),
     scope: "world",
     config: false,
     type: Object,
@@ -171,8 +171,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "hiddenPlayers", {
-    name: "Hidden Players",
-    hint: "Hide selected players from the dice stats dashboard.",
+    name: localize("IDS.Visibility.HiddenPlayers"),
+    hint: localize("IDS.Visibility.Description"),
     scope: "world",
     config: false,
     type: Array,
@@ -180,7 +180,7 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "uiState", {
-    name: "Indy Dice Stats UI State",
+    name: localize("IDS.Settings.UiState"),
     scope: "client",
     config: false,
     type: Object,
@@ -188,7 +188,7 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "monitorPosition", {
-    name: "Indy Dice Stats Monitor Position",
+    name: localize("IDS.Settings.MonitorPosition"),
     scope: "client",
     config: false,
     type: Object,
@@ -199,8 +199,8 @@ Hooks.once("init", () => {
   const defaultTitle = "\"Fraunces\", \"Georgia\", serif";
 
   game.settings.register(MODULE_ID, "fontBody", {
-    name: "Body Font",
-    hint: "Font used for general text in the module.",
+    name: localize("IDS.Settings.BodyFont.Name"),
+    hint: localize("IDS.Settings.BodyFont.Hint"),
     scope: "client",
     config: true,
     type: String,
@@ -210,8 +210,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "fontTitle", {
-    name: "Title Font",
-    hint: "Font used for titles and large numbers.",
+    name: localize("IDS.Settings.TitleFont.Name"),
+    hint: localize("IDS.Settings.TitleFont.Hint"),
     scope: "client",
     config: true,
     type: String,
@@ -221,8 +221,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "fontBodyScale", {
-    name: "Body Font Scale",
-    hint: "Multiplier applied to body font sizes (e.g. 1.1 = 10% larger).",
+    name: localize("IDS.Settings.BodyScale.Name"),
+    hint: localize("IDS.Settings.BodyScale.Hint"),
     scope: "client",
     config: true,
     type: Number,
@@ -236,8 +236,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "fontTitleScale", {
-    name: "Title Font Scale",
-    hint: "Multiplier applied to title/number font sizes.",
+    name: localize("IDS.Settings.TitleScale.Name"),
+    hint: localize("IDS.Settings.TitleScale.Hint"),
     scope: "client",
     config: true,
     type: Number,
@@ -251,8 +251,8 @@ Hooks.once("init", () => {
   });
 
   game.settings.register(MODULE_ID, "chartLegendScale", {
-    name: "Chart Legend Font Scale",
-    hint: "Multiplier applied to chart legend and axis label sizes.",
+    name: localize("IDS.Settings.ChartScale.Name"),
+    hint: localize("IDS.Settings.ChartScale.Hint"),
     scope: "client",
     config: true,
     type: Number,
@@ -266,36 +266,36 @@ Hooks.once("init", () => {
   });
 
   game.settings.registerMenu(MODULE_ID, "viewer", {
-    name: "Indy Dice Stats",
-    label: "Open Dice Dashboard",
-    hint: "View dice statistics for players and actions.",
+    name: localize("IDS.App.Name"),
+    label: localize("IDS.Menus.Viewer.Label"),
+    hint: localize("IDS.Menus.Viewer.Hint"),
     icon: "fas fa-chart-column",
     type: DiceStatsApp,
     restricted: false
   });
 
   game.settings.registerMenu(MODULE_ID, "reset", {
-    name: "Reset Dice Stats",
-    label: "Reset Dice Stats",
-    hint: "Clear dice statistics for players.",
+    name: localize("IDS.Reset.Title"),
+    label: localize("IDS.Reset.Title"),
+    hint: localize("IDS.Menus.Reset.Hint"),
     icon: "fas fa-rotate-left",
     type: DiceStatsResetApp,
     restricted: true
   });
 
   game.settings.registerMenu(MODULE_ID, "visibility", {
-    name: "Player Visibility",
-    label: "Configure Hidden Players",
-    hint: "Choose players to hide from the dice stats dashboard.",
+    name: localize("IDS.Visibility.Title"),
+    label: localize("IDS.Menus.Visibility.Label"),
+    hint: localize("IDS.Menus.Visibility.Hint"),
     icon: "fas fa-user-slash",
     type: DiceStatsVisibilityApp,
     restricted: true
   });
 
   game.settings.registerMenu(MODULE_ID, "faker", {
-    name: "Generate Fake Data",
-    label: "Generate Fake Data",
-    hint: "Create fake dice stats for a selected player.",
+    name: localize("IDS.Faker.Title"),
+    label: localize("IDS.Faker.Title"),
+    hint: localize("IDS.Menus.Faker.Hint"),
     icon: "fas fa-dice",
     type: DiceStatsFakerApp,
     restricted: true
@@ -877,7 +877,7 @@ Hooks.on("getSceneControlButtons", (controls) => {
   const dashboardOrder = getNextToolOrder();
   addTool({
     name: "indyDiceStats",
-    title: "Indy Dice Stats",
+    title: localize("IDS.App.Name"),
     icon: "fas fa-chart-column",
     order: dashboardOrder,
     button: true,
@@ -886,7 +886,7 @@ Hooks.on("getSceneControlButtons", (controls) => {
   });
   addTool({
     name: "indyDiceStatsMonitor",
-    title: "Indy Dice Stats Monitor",
+    title: localize("IDS.App.MonitorTitle"),
     icon: "fa-regular fa-telescope",
     order: dashboardOrder + 1,
     visible: true,

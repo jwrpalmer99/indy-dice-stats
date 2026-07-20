@@ -1,17 +1,18 @@
 {
     "name":  "indy-dice-stats",
     "version":  "1.0.0",
-    "description":  "A module to track and visualize dice stats in 5e.",
+    "description":  "A module to track and visualize dice stats in D&D 5e and Pathfinder 2e.",
     "main":  "index.js",
     "scripts":  {
-                    "createSymlinks":  "node ./tools/create-symlinks.mjs"
+                    "createSymlinks":  "node ./tools/create-symlinks.mjs",
+                    "test":  "node --test"
                 },
     "keywords":  [
 
                  ],
     "author":  "",
     "license":  "ISC",
-    "type":  "commonjs",
+    "type":  "module",
     "dependencies":  {
                          "js-yaml":  "^4.1.1"
                      }

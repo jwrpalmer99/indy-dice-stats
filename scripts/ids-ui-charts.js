@@ -1,4 +1,4 @@
-import { ACTION_LABELS, CHART_JS_SRC } from "./ids-constants.js";
+import { CHART_JS_SRC, format, getActionLabel, localize } from "./ids-constants.js";
 import { state } from "./ids-state.js";
 import {
   computeDieSummary,
@@ -8,10 +8,9 @@ import {
   getChartTitleColor,
   getFilteredStats,
   sortActionKeys,
-  sortDiceKeys,
   buildGradient,
   buildPalette,
-  buildScopedStats
+  buildRainbowPalette
 } from "./ids-ui-helpers.js";
 import { getHiddenUserIds, normalizeStats } from "./ids-data.js";
 import { getAllSessionStats } from "./ids-ui-helpers.js";
@@ -221,7 +220,7 @@ function renderDistributionChart(app, root, stats, dieKey, compareStats, normali
     }
     datasets = [
       {
-        label: `${dieKey.toUpperCase()} Results`,
+        label: format("IDS.Charts.DieResults", { die: dieKey.toUpperCase() }),
         data,
         backgroundColor: buildGradient(context, "#0f766e", "#f97316"),
         borderRadius: 8,
@@ -236,7 +235,7 @@ function renderDistributionChart(app, root, stats, dieKey, compareStats, normali
   const gridColor = getChartGridColor();
   const tickColor = getChartTickColor();
   const titleColor = getChartTitleColor();
-  const titleSuffix = normalize ? " (Normalized)" : "";
+  const titleSuffix = normalize ? localize("IDS.Charts.NormalizedSuffix") : "";
   const maxCeil = normalize && Number.isFinite(yMax) ? Math.ceil(yMax) : undefined;
 
   app._charts.distribution = new Chart(context, {
@@ -271,7 +270,10 @@ function renderDistributionChart(app, root, stats, dieKey, compareStats, normali
           },
           title: {
             display: false,
-            text: `Distribution: ${dieKey.toUpperCase()}${titleSuffix}`,
+            text: format("IDS.Charts.DistributionTitle", {
+              die: dieKey.toUpperCase(),
+              suffix: titleSuffix
+            }),
             color: titleColor,
             font: { size: 16, family: "Fraunces" }
         },
@@ -308,7 +310,7 @@ function renderTrendChart(app, root, globalStats, userId, compareIds, actionFilt
   const datasets = series.map((entry, index) => {
     const color = palette[index % palette.length];
     const label = entry.userId === "all"
-      ? "All Players"
+      ? localize("IDS.Common.AllPlayers")
       : (game.users.get(entry.userId)?.name || entry.userId);
     const data = [];
     const candles = [];
@@ -418,16 +420,28 @@ function renderTrendChart(app, root, globalStats, userId, compareIds, actionFilt
           callbacks: {
             label: (context) => {
               const candle = context.dataset?.idsCandles?.[context.dataIndex];
-              if (!candle) return `${context.dataset.label || "Avg"}: -`;
+              if (!candle) return `${context.dataset.label || localize("IDS.Common.AverageShort")}: -`;
               const avg = Number.isFinite(candle.avg) ? candle.avg.toFixed(2) : "-";
               const min = Number.isFinite(candle.min) ? candle.min : "-";
               const max = Number.isFinite(candle.max) ? candle.max : "-";
               if (!showCandlesFlag) {
-                return `${context.dataset.label || "Avg"}: avg ${avg}, min ${min}, max ${max}`;
+                return format("IDS.Charts.TrendTooltip", {
+                  label: context.dataset.label || localize("IDS.Common.AverageShort"),
+                  avg,
+                  min,
+                  max
+                });
               }
               const q1 = Number.isFinite(candle.q1) ? candle.q1 : "-";
               const q3 = Number.isFinite(candle.q3) ? candle.q3 : "-";
-              return `${context.dataset.label || "Avg"}: avg ${avg}, min ${min}, max ${max}, q1 ${q1}, q3 ${q3}`;
+              return format("IDS.Charts.CandleTooltip", {
+                label: context.dataset.label || localize("IDS.Common.AverageShort"),
+                avg,
+                min,
+                max,
+                q1,
+                q3
+              });
             }
           }
         },
@@ -456,10 +470,10 @@ function renderBreakdownChart(app, root, stats, actionFilter, dieFilter, detailF
 
   let labels = [];
   let values = [];
-  let title = "Action Breakdown";
+  let title = localize("IDS.Charts.ActionBreakdown");
   let subtitle = "";
   const hasDetailAction = ["save", "skill", "check", "ability"].includes(actionFilter);
-  const scopedStats = actionFilter === "all" ? stats : buildScopedStats(stats, actionFilter);
+  const scopedStats = getFilteredStats(stats, actionFilter, detailFilter);
   let clickMode = null;
   let clickKeys = [];
 
@@ -468,7 +482,7 @@ function renderBreakdownChart(app, root, stats, actionFilter, dieFilter, detailF
     const sortedActions = Object.keys(actions).sort(sortActionKeys);
     const entries = sortedActions.map((key) => ({
       key,
-      label: ACTION_LABELS[key] || key,
+      label: getActionLabel(key),
       value: Number(actions[key]?.dice?.[dieFilter]?.count) || 0
     }));
     const filtered = entries.filter((entry) => entry.value > 0);
@@ -476,30 +490,30 @@ function renderBreakdownChart(app, root, stats, actionFilter, dieFilter, detailF
     values = filtered.map((entry) => entry.value);
     clickKeys = filtered.map((entry) => entry.key);
     clickMode = "action";
-    title = `Actions (${dieFilter.toUpperCase()})`;
+    title = format("IDS.Charts.ActionsWithDie", { die: dieFilter.toUpperCase() });
   } else if (hasDetailAction && detailFilter === "all") {
     const details = stats.actions?.[actionFilter]?.details || {};
     const detailKeys = Object.keys(details).sort();
     const entries = detailKeys.map((key) => ({
       key,
       label: formatDetailLabel(key),
-      value: Number(details[key]?.count) || 0
+      value: Number(details[key]?.dice?.[dieFilter]?.count) || 0
     }));
     labels = entries.map((entry) => entry.label);
     values = entries.map((entry) => entry.value);
     clickKeys = entries.map((entry) => entry.key);
     clickMode = "detail";
-    title = `${ACTION_LABELS[actionFilter] || actionFilter} Type`;
+    title = format("IDS.Charts.ActionType", { action: getActionLabel(actionFilter) });
   } else {
-    const diceKeys = Object.keys(scopedStats.dice || {}).sort(sortDiceKeys);
+    const diceKeys = scopedStats.dice?.[dieFilter] ? [dieFilter] : [];
     labels = diceKeys.map((key) => key.toUpperCase());
     values = diceKeys.map((key) => Number(scopedStats.dice[key]?.count) || 0);
     clickKeys = [...diceKeys];
     clickMode = "die";
-    title = `Dice Mix (${ACTION_LABELS[actionFilter] || actionFilter})`;
+    title = format("IDS.Charts.DiceMix", { action: getActionLabel(actionFilter) });
   }
 
-  const actionLabel = actionFilter === "all" ? "All Actions" : (ACTION_LABELS[actionFilter] || actionFilter);
+  const actionLabel = actionFilter === "all" ? localize("IDS.Common.AllActions") : getActionLabel(actionFilter);
   const detailLabel = detailFilter && detailFilter !== "all" ? formatDetailLabel(detailFilter) : "";
   const distributionContext = actionFilter === "all"
     ? ""
@@ -514,7 +528,7 @@ function renderBreakdownChart(app, root, stats, actionFilter, dieFilter, detailF
       values = labels.map((label) => Number(dieStats.results?.[label]) || 0);
       title = distributionContext
         ? `${distributionContext} (${fallbackDie.toUpperCase()})`
-        : `Distribution (${fallbackDie.toUpperCase()})`;
+        : format("IDS.Charts.DistributionParen", { die: fallbackDie.toUpperCase() });
       clickKeys = [];
       clickMode = null;
     }
@@ -542,15 +556,15 @@ function renderBreakdownChart(app, root, stats, actionFilter, dieFilter, detailF
       values = labels.map((label) => Number(dieStats.results?.[label]) || 0);
       title = distributionContext
         ? `${distributionContext} (${fallbackDie.toUpperCase()})`
-        : `Distribution (${fallbackDie.toUpperCase()})`;
+        : format("IDS.Charts.DistributionParen", { die: fallbackDie.toUpperCase() });
       clickKeys = [];
       clickMode = null;
     }
   }
   if (!hasData) {
-    labels = ["No data"];
+    labels = [localize("IDS.Charts.NoData")];
     values = [1];
-    subtitle = "No data for current filters";
+    subtitle = localize("IDS.Charts.NoDataForFilters");
     clickMode = null;
     clickKeys = [];
   }
@@ -561,7 +575,11 @@ function renderBreakdownChart(app, root, stats, actionFilter, dieFilter, detailF
 
   destroyChart(app, "breakdown");
 
-  const palette = hasData ? buildPalette(values.length) : ["rgba(60, 70, 80, 0.25)"];
+  const palette = hasData
+    ? (clickMode === null
+      ? buildRainbowPalette(labels, Number(String(dieFilter).replace(/\D/g, "")))
+      : buildPalette(values.length))
+    : ["rgba(60, 70, 80, 0.25)"];
 
   const mutedColor = computed.getPropertyValue("--ids-muted").trim() || getChartTickColor();
   const legendColor = getChartTickColor();

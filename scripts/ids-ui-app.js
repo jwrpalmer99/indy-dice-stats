@@ -1,4 +1,4 @@
-import { ACTION_LABELS, MODULE_ID } from "./ids-constants.js";
+import { MODULE_ID, format, getActionLabel, localize } from "./ids-constants.js";
 import { getUiState, scheduleUiStateSave, state } from "./ids-state.js";
 import {
   getDateKey,
@@ -56,7 +56,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     id: "indy-dice-stats",
     classes: ["indy-dice-stats"],
     window: {
-      title: "Indy Dice Stats",
+      title: "IDS.App.Name",
       icon: "fas fa-chart-column",
       resizable: true
     },
@@ -101,7 +101,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     const diceOptions = Object.keys(combined.dice || {}).sort(sortDiceKeys);
     const actionOptions = Object.keys(combined.actions || {})
       .sort(sortActionKeys)
-      .map((key) => ({ key, label: ACTION_LABELS[key] || key }));
+      .map((key) => ({ key, label: getActionLabel(key) }));
 
     if (!diceOptions.length) diceOptions.push("d20", "d6");
 
@@ -256,7 +256,11 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     const showCandles = !!candlesToggle?.checked;
     const streakType = streakTypeToggle?.checked ? "max" : "min";
     const streakLabel = scope.querySelector("[data-toggle='streaks'] .ids-toggle__label");
-    if (streakLabel) streakLabel.textContent = streakType === "max" ? "Max Streak" : "Min Streak";
+    if (streakLabel) {
+      streakLabel.textContent = localize(
+        streakType === "max" ? "IDS.Table.MaxStreak" : "IDS.Table.MinStreak"
+      );
+    }
 
     const globalStats = getGlobalStats();
     const baseStats = getStatsForSession(globalStats, userId, sessionFilter, getHiddenUserIds());
@@ -355,9 +359,9 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       const selected = preferred || "all";
       const options = Object.keys(baseStats.actions || {})
         .sort(sortActionKeys)
-        .map((key) => ({ value: key, label: ACTION_LABELS[key] || key }));
+        .map((key) => ({ value: key, label: getActionLabel(key) }));
       this._replaceSelectOptions(actionSelect, [
-        { value: "all", label: "All Actions" },
+        { value: "all", label: localize("IDS.Common.AllActions") },
         ...options
       ], selected);
     }
@@ -370,7 +374,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       const disabled = detailOptions.length === 0;
       detailSelect.disabled = disabled;
       const options = [
-        { value: "all", label: "All" },
+        { value: "all", label: localize("IDS.Common.All") },
         ...detailOptions
       ];
       this._replaceSelectOptions(detailSelect, options, selected);
@@ -399,8 +403,8 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
         .sort()
         .reverse();
       const options = [
-        { value: "all", label: "All Time" },
-        { value: "today", label: "Today" },
+        { value: "all", label: localize("IDS.Common.AllTime") },
+        { value: "today", label: localize("IDS.Common.Today") },
         ...dates.map((dateKey) => ({ value: dateKey, label: dateKey }))
       ];
       const validSelected = options.some((opt) => opt.value === selected) ? selected : "all";
@@ -417,7 +421,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       const preferred = uiState?.userId ?? userSelect.value;
       const selected = preferred || (game.user?.isGM ? "all" : null);
       const options = [
-        { value: "all", label: "All Players" },
+        { value: "all", label: localize("IDS.Common.AllPlayers") },
         ...visibleUsers.map((user) => ({ value: user.id, label: user.name }))
       ];
       const fallback = game.user?.isGM
@@ -436,7 +440,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       }
       const selected = uiState?.compareIds ?? getMultiSelectValues(compareSelect);
       const options = [
-        { value: "", label: "None" },
+        { value: "", label: localize("IDS.Common.None") },
         ...visibleUsers.map((user) => ({ value: user.id, label: user.name }))
       ];
       this._replaceMultiSelectOptions(compareSelect, options, selected);
@@ -474,7 +478,9 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     const filteredDice = dieStats?.count || 0;
     const avg = dieStats && dieStats.count ? dieStats.sum / dieStats.count : 0;
 
-    setText(root, "[data-stat-label='filtered-dice']", `Filtered Dice (${dieKey.toUpperCase()})`);
+    setText(root, "[data-stat-label='filtered-dice']", format("IDS.Summary.FilteredDiceWithDie", {
+      die: dieKey.toUpperCase()
+    }));
     setText(root, "[data-stat='total-dice']", formatNumber(totalDice));
     setText(root, "[data-stat='filtered-dice']", formatNumber(filteredDice));
     setText(root, "[data-stat='die-average']", avg ? avg.toFixed(2) : "-");
@@ -482,8 +488,8 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     const topLabelEl = root.querySelector("[data-stat-label='top-action']");
     if (actionFilter === "all") {
       const mostAction = getMostFrequentAction(stats.actions || {});
-      if (topLabelEl) topLabelEl.textContent = "Top Action";
-      setText(root, "[data-stat='top-action']", mostAction ? ACTION_LABELS[mostAction] || mostAction : "-");
+      if (topLabelEl) topLabelEl.textContent = localize("IDS.Summary.TopAction");
+      setText(root, "[data-stat='top-action']", mostAction ? getActionLabel(mostAction) : "-");
       return;
     }
 
@@ -500,7 +506,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
           topDetail = key;
         }
       }
-      if (topLabelEl) topLabelEl.textContent = "Top Type";
+      if (topLabelEl) topLabelEl.textContent = localize("IDS.Summary.TopType");
       setText(root, "[data-stat='top-action']", topDetail ? formatDetailLabel(topDetail) : "-");
       return;
     }
@@ -514,7 +520,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
         topRoll = face;
       }
     }
-    if (topLabelEl) topLabelEl.textContent = "Top Roll";
+    if (topLabelEl) topLabelEl.textContent = localize("IDS.Summary.TopRoll");
     setText(root, "[data-stat='top-action']", topRoll ?? "-");
   }
 
@@ -556,7 +562,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     if (userEl) {
       const userName = latestRoll.userName
         || (latestRoll.userId ? game.users.get(latestRoll.userId)?.name : null)
-        || "Unknown";
+        || localize("IDS.Common.Unknown");
       userEl.textContent = userName;
     }
 
@@ -590,7 +596,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       const advSpan = document.createElement("span");
       const isDis = latestRoll.advantage === "disadvantage";
       advSpan.className = `ids-roll-advantage ${isDis ? "ids-roll-advantage--dis" : "ids-roll-advantage--adv"}`;
-      advSpan.textContent = isDis ? "Disadvantage" : "Advantage";
+      advSpan.textContent = localize(isDis ? "IDS.Latest.Disadvantage" : "IDS.Latest.Advantage");
       fragment.appendChild(advSpan);
     }
 
@@ -598,7 +604,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     if (segments.length === 0) {
       const emptySpan = document.createElement("span");
       emptySpan.className = "ids-roll-empty";
-      emptySpan.textContent = "No dice results";
+      emptySpan.textContent = localize("IDS.Latest.NoDice");
       fragment.appendChild(emptySpan);
     } else {
       const showSegmentLabels = segments.length > 1;
@@ -662,19 +668,21 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
   _formatLatestRollAction(latestRoll) {
     if (!latestRoll) return "";
     const actionType = latestRoll.actionType || "other";
-    const baseLabel = ACTION_LABELS[actionType] || toPascalCase(actionType);
-    const trimmedBase = baseLabel.replace(/\s*Rolls$/i, "");
+    const baseLabel = getActionLabel(actionType, true) || toPascalCase(actionType);
     const detailKey = latestRoll.detailKey;
     if (detailKey && ["save", "skill", "check", "ability"].includes(actionType)) {
       let detailLabel = formatDetailLabel(detailKey);
-      const lower = detailLabel.toLowerCase();
-      if (!/(save|skill|check)/.test(lower)) {
-        const suffix = actionType === "save" ? "Save" : actionType === "skill" ? "Skill" : "Check";
-        detailLabel = `${detailLabel} ${suffix}`;
+      if (!detailKey.includes(":")) {
+        const key = actionType === "save"
+          ? "IDS.Detail.Save"
+          : actionType === "skill"
+            ? "IDS.Detail.Skill"
+            : "IDS.Detail.Check";
+        detailLabel = format(key, { label: detailLabel });
       }
       return detailLabel;
     }
-    return trimmedBase || "Roll";
+    return baseLabel || localize("IDS.Common.Roll");
   }
 
   _getLatestRollDiceEntries(latestRoll) {
@@ -758,9 +766,9 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     const visibility = latestRoll.visibility;
     if (!visibility) return "";
     const mode = String(visibility.rollMode || "").toLowerCase();
-    if (mode.includes("blind")) return "Blind";
-    if (mode.includes("gm")) return "Private";
-    if (mode.includes("self")) return "Self";
+    if (mode.includes("blind")) return localize("IDS.Latest.Blind");
+    if (mode.includes("gm")) return localize("IDS.Latest.Private");
+    if (mode.includes("self")) return localize("IDS.Latest.Self");
     return "";
   }
 
@@ -857,7 +865,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
 
     tbody.innerHTML = rows.length
       ? rows.join("")
-      : "<tr><td colspan='7'>No rolls captured yet.</td></tr>";
+      : `<tr><td colspan='7'>${localize("IDS.Table.NoRolls")}</td></tr>`;
   }
 
   _renderDistributionChart(root, stats, dieKey, compareStats, normalize) {
@@ -878,7 +886,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     const seriesIds = ["all", ...visibleUsers];
     const series = seriesIds.map((seriesId) => {
       const label = seriesId === "all"
-        ? "All Players"
+        ? localize("IDS.Common.AllPlayers")
         : (game.users.get(seriesId)?.name || seriesId);
       return { id: seriesId, label, byDate: getAllSessionStats(globalStats, seriesId, hidden) };
     });
@@ -891,7 +899,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     }
     const dates = Array.from(dateSet).sort();
     if (dates.length === 0) {
-      container.innerHTML = "<div class=\"ids-heatmap__empty\">No streak data yet.</div>";
+      container.innerHTML = `<div class="ids-heatmap__empty">${localize("IDS.Charts.NoStreakData")}</div>`;
       return;
     }
     container.dataset.heatmapColumns = String(dates.length);
@@ -926,7 +934,12 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
       row.values.forEach((value, idx) => {
         const color = buildHeatmapColor(baseRgb, value, maxValue);
         const dateLabel = dates[idx];
-        const title = `${row.label} ${streakType.toUpperCase()} streak on ${dateLabel}: ${value || 0}`;
+        const title = format("IDS.Charts.StreakCell", {
+          player: row.label,
+          type: localize(streakType === "max" ? "IDS.Common.Max" : "IDS.Common.Min"),
+          date: dateLabel,
+          value: value || 0
+        });
         const delay = Math.min(260, cellIndex * 6);
         html += `<td class=\"ids-heatmap__cell ids-heatmap__cell--animate\" data-date=\"${dateLabel}\" title=\"${title}\" style=\"background-color: ${color}; --ids-heatmap-delay: ${delay}ms;\"></td>`;
         cellIndex += 1;
@@ -983,14 +996,16 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     if (candlesToggle) candlesToggle.classList.toggle("is-hidden", mode !== "trend");
     if (streaksToggle) streaksToggle.classList.toggle("is-hidden", mode !== "streaks");
     if (mode === "trend") {
-      title.textContent = `Trend ${dieKey.toUpperCase()}`;
+      title.textContent = format("IDS.Charts.TrendWithDie", { die: dieKey.toUpperCase() });
     } else if (mode === "streaks") {
-      title.textContent = `Streaks ${dieKey.toUpperCase()}`;
+      title.textContent = format("IDS.Charts.StreaksWithDie", { die: dieKey.toUpperCase() });
     } else {
-      const suffix = normalize ? " (Normalized)" : "";
-      title.textContent = `Distribution ${dieKey.toUpperCase()}${suffix}`;
+      title.textContent = format(
+        normalize ? "IDS.Charts.DistributionNormalizedWithDie" : "IDS.Charts.DistributionWithDie",
+        { die: dieKey.toUpperCase() }
+      );
     }
-    title.setAttribute("title", "Click to toggle distribution, trend, and streaks view.");
+    title.setAttribute("title", localize("IDS.Charts.CycleHint"));
   }
 
   _renderComparisonTable(scope, compareStats, dieKey) {
@@ -1015,7 +1030,7 @@ class DiceStatsApp extends foundry.applications.api.HandlebarsApplicationMixin(
     });
     tbody.innerHTML = rows.length
       ? rows.join("")
-      : "<tr><td colspan='4'>Select two or more players to compare.</td></tr>";
+      : `<tr><td colspan='4'>${localize("IDS.Table.SelectPlayers")}</td></tr>`;
   }
 
   _renderBreakdownChart(root, stats, actionFilter, dieFilter, detailFilter) {
@@ -1035,7 +1050,7 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
     id: "indy-dice-stats-monitor",
     classes: ["indy-dice-stats", "indy-dice-stats-monitor"],
     window: {
-      title: "Indy Dice Stats Monitor",
+      title: "IDS.App.MonitorTitle",
       icon: "fa-regular fa-telescope",
       resizable: false,
       frame: true
@@ -1195,7 +1210,7 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
     if (userEl) {
       const userName = latestRoll.userName
         || (latestRoll.userId ? game.users.get(latestRoll.userId)?.name : null)
-        || "Unknown";
+        || localize("IDS.Common.Unknown");
       userEl.textContent = userName;
     }
 
@@ -1228,7 +1243,7 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
       const advSpan = document.createElement("span");
       const isDis = latestRoll.advantage === "disadvantage";
       advSpan.className = `ids-roll-advantage ${isDis ? "ids-roll-advantage--dis" : "ids-roll-advantage--adv"}`;
-      advSpan.textContent = isDis ? "Disadvantage" : "Advantage";
+      advSpan.textContent = localize(isDis ? "IDS.Latest.Disadvantage" : "IDS.Latest.Advantage");
       fragment.appendChild(advSpan);
     }
 
@@ -1236,7 +1251,7 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
     if (segments.length === 0) {
       const emptySpan = document.createElement("span");
       emptySpan.className = "ids-roll-empty";
-      emptySpan.textContent = "No dice results";
+      emptySpan.textContent = localize("IDS.Latest.NoDice");
       fragment.appendChild(emptySpan);
     } else {
       if (segments.length === 1) {
@@ -1324,19 +1339,21 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
   _formatLatestRollAction(latestRoll) {
     if (!latestRoll) return "";
     const actionType = latestRoll.actionType || "other";
-    const baseLabel = ACTION_LABELS[actionType] || toPascalCase(actionType);
-    const trimmedBase = baseLabel.replace(/\s*Rolls$/i, "");
+    const baseLabel = getActionLabel(actionType, true) || toPascalCase(actionType);
     const detailKey = latestRoll.detailKey;
     if (detailKey && ["save", "skill", "check", "ability"].includes(actionType)) {
       let detailLabel = formatDetailLabel(detailKey);
-      const lower = detailLabel.toLowerCase();
-      if (!/(save|skill|check)/.test(lower)) {
-        const suffix = actionType === "save" ? "Save" : actionType === "skill" ? "Skill" : "Check";
-        detailLabel = `${detailLabel} ${suffix}`;
+      if (!detailKey.includes(":")) {
+        const key = actionType === "save"
+          ? "IDS.Detail.Save"
+          : actionType === "skill"
+            ? "IDS.Detail.Skill"
+            : "IDS.Detail.Check";
+        detailLabel = format(key, { label: detailLabel });
       }
       return detailLabel;
     }
-    return trimmedBase || "Roll";
+    return baseLabel || localize("IDS.Common.Roll");
   }
 
   _getLatestRollDiceEntries(latestRoll) {
@@ -1425,9 +1442,9 @@ class DiceStatsMonitorApp extends foundry.applications.api.HandlebarsApplication
     const visibility = latestRoll.visibility;
     if (!visibility) return "";
     const mode = String(visibility.rollMode || "").toLowerCase();
-    if (mode.includes("blind")) return "Blind";
-    if (mode.includes("gm")) return "Private";
-    if (mode.includes("self")) return "Self";
+    if (mode.includes("blind")) return localize("IDS.Latest.Blind");
+    if (mode.includes("gm")) return localize("IDS.Latest.Private");
+    if (mode.includes("self")) return localize("IDS.Latest.Self");
     return "";
   }
 
